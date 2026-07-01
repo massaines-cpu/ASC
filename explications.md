@@ -2,12 +2,13 @@
 
 ## Plan 
 
-**1. Objectif de l’article**
+## **1. Objectif de l’article**
 
 **Problématique** : Peut-on distinguer une interaction entre 2 personnes TD (neurotypique) 
 d'une interaction avec au moins une personne ASC (autiste) ?
 
 On a donc 2 classes :
+
 Classe 1 = TD
 Classe 2 = ASC
 
@@ -33,7 +34,7 @@ Il ne connaît **jamais** :
 Il apprend uniquement : **Comment sont organisés les signaux EEG**
 Cette représentation va être utilisé pour la classification TD / ASC
 
-**2. Données utilisées**
+## **2. Données utilisées**
 
 Ils utilisent 2 jeux de données différents :
 
@@ -48,7 +49,7 @@ Ils utilisent 2 jeux de données différents :
 - 501 points temporels
 - fenêtre de 1 seconde
 
-**3. Prétraitement**
+## **3. Prétraitement**
 
 **Nettoyage des données brutes** :
 
@@ -61,10 +62,10 @@ Ils utilisent 2 jeux de données différents :
 
 à la fin on a une matrice de **61 canaux x 501 échantillons**
 
-**4. Tâche prétexte**
-**5. Architecture single-brain**
-**6. Architecture multi-brain**
-**7. Baselines**
-**8. Résultats**
-**9. Points flous**
-**10. Plan de reproduction**
+## **4. Tâche prétexte**
+## **5. Architecture single-brain**
+## **6. Architecture multi-brain**
+## **7. Baselines**
+## **8. Résultats**
+## **9. Points flous**
+## *10. Plan de reproduction**
