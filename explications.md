@@ -2,7 +2,7 @@
 
 ## Plan 
 
-1. Objectif de l’article
+**1. Objectif de l’article**
 
 **Problématique** : Peut-on distinguer une interaction entre 2 personnes TD (neurotypique) 
 d'une interaction avec au moins une personne ASC (autiste) ?
@@ -23,34 +23,35 @@ On donne des signaux EEG non annotés au réseau qui va apprendre une représent
 
 Avant de lui donner la vraie tâche on lui apprend ce que sont des signaux EEG classiques
 
-Il ne connaît jamais :
+Il ne connaît **jamais** :
 
 - TD
 - ASC
 - synchronisé
 - non synchronisé
 
-Il apprend uniquement : Comment sont organisés les signaux EEG
+Il apprend uniquement : **Comment sont organisés les signaux EEG**
 Cette représentation va être utilisé pour la classification TD / ASC
 
-2. Données utilisées
+**2. Données utilisées**
 
 Ils utilisent 2 jeux de données différents :
 
-Healthy Brain Network (HBN) :
+**Healthy Brain Network (HBN)** :
 - 1000 sujets
 - EEG de 61 canaux
 - segmentation en époques de 1 seconde
 
-Brain-to-Brain Communication (BBC2) :
+**Brain-to-Brain Communication (BBC2)** :
 - 142 120 époques dyadiques
 - 61 canaux EEG
 - 501 points temporels
 - fenêtre de 1 seconde
 
-3. Prétraitement
+**3. Prétraitement**
 
-Nettoyage des données brutes :
+**Nettoyage des données brutes** :
+
 - interpolation des mauvais canaux
 - notch filter = enlever le bruit électrique
 - filtre passe bande
@@ -58,12 +59,12 @@ Nettoyage des données brutes :
 - découpage époques de 1 s
 - suppression des époques bruitées (autoreject)
 
-à la fin on a une matrice de 61 canaux x 501 échantillons
+à la fin on a une matrice de **61 canaux x 501 échantillons**
 
-4. Tâche prétexte
-5. Architecture single-brain
-6. Architecture multi-brain
-7. Baselines
-8. Résultats
-9. Points flous
-10. Plan de reproduction
+**4. Tâche prétexte**
+**5. Architecture single-brain**
+**6. Architecture multi-brain**
+**7. Baselines**
+**8. Résultats**
+**9. Points flous**
+**10. Plan de reproduction**
