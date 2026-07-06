@@ -19,7 +19,7 @@ directement les signaux EEG** de 2 personnes pour effectuer une classification
 
 Il n'entraîne pas un **CNN** car il y a très peu de données annotées => utilisation du **Self-Supervised Learning (SSL)**
 
-**En quoi consite le SSL ?**
+**En quoi consiste le SSL ?**
 
 On donne des signaux EEG non annotés au réseau qui va apprendre une représentation générale de l'EEG.
 
@@ -33,7 +33,7 @@ Il ne connaît **jamais** :
 - non synchronisé
 
 Il apprend uniquement : **Comment sont organisés les signaux EEG**
-Cette représentation va être utilisé pour la classification TD / ASC
+Cette représentation va être utilisée pour la classification TD / ASC
 
 ## **2. Données utilisées**
 
@@ -81,7 +81,19 @@ dans le temps se ressemblent + que les époques éloignées
 ## **5. Architecture single-brain**
 
 Premier réseau entrainé en entrée on a : 61 x 501
-Utilisation de Shallow ConvNet (CNN spécialié pour EEG) process :
+Les poids sont calculés avec le single-brain
+
+Utilisation de Shallow ConvNet (CNN spécialisé pour EEG) process :
+
+```
+model = ShallowConvNet()
+
+train_sur_HBN(model)
+
+torch.save(model.state_dict(), "encoder.pt")
+```
+
+encodeur (CNN entier, le réseau entier + poids) =
 1. EEG
 2. Convolution temporelle : regarde comment le signal évolue dans le temps, détecte alpha, bêta, delta
 3. Convolution spatiale : regarde les relations entre électrodes, voir si telle ou telle électrode augmente ou diminue, réseau 
@@ -93,6 +105,15 @@ apprend les corrélations spatiales
 ## **6. Architecture multi-brain**
 
 dataset BBC2 
+
+```
+model = ShallowConvNet()
+
+model.load_state_dict(torch.load("encoder.pt"))
+
+train_sur_BBC2(model)
+```
+
 Dans cette architecture on possède 2 participants A et B
 Les 2 EEG vont passer dans 2 encodeurs : EEG A -> encodeur pré-entraîné -> embedding A ; pareil pour EEG B
 Ensuite on prend embedding A et embedding B on les concatenatent -> fully connected --> on les classe TD ou ASC
@@ -151,7 +172,40 @@ EEG B ──► Encodeur ──► Embedding B
                             ▼
                        TD ou ASC
 ## **9. Points flous**
+HBN
+     (pas de labels ASC)
 
+        Création des triplets
+               ↓
+         Tâche prétexte
+               ↓
+       Shallow ConvNet
+               ↓
+        Backpropagation
+               ↓
+     Poids optimisés (encoder.pt)
+               │
+               │
+               ▼
+              BBC2
+      (labels TD / ASC)
+               ↓
+  Chargement des poids appris
+               ↓
+     EEG A          EEG B
+        │             │
+        ▼             ▼
+   Même encodeur  Même encodeur
+        │             │
+        ▼             ▼
+   Embedding A    Embedding B
+           \         /
+            \       /
+         Concaténation
+               ↓
+     Couche de classification
+               ↓
+          TD ou ASC
 
 
 ## *10. Plan de reproduction**
