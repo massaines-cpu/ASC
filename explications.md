@@ -172,40 +172,65 @@ EEG B ──► Encodeur ──► Embedding B
                             ▼
                        TD ou ASC
 ## **9. Points flous**
-HBN
-     (pas de labels ASC)
+PHASE 1 : PRÉ-ENTRAÎNEMENT SSL
 
-        Création des triplets
-               ↓
-         Tâche prétexte
-               ↓
-       Shallow ConvNet
-               ↓
-        Backpropagation
-               ↓
-     Poids optimisés (encoder.pt)
-               │
-               │
-               ▼
-              BBC2
-      (labels TD / ASC)
-               ↓
-  Chargement des poids appris
-               ↓
-     EEG A          EEG B
-        │             │
-        ▼             ▼
-   Même encodeur  Même encodeur
-        │             │
-        ▼             ▼
-   Embedding A    Embedding B
-           \         /
-            \       /
-         Concaténation
-               ↓
-     Couche de classification
-               ↓
-          TD ou ASC
+                  Dataset HBN
+          EEG individuels non étiquetés
+                         │
+                         ▼
+              Prétraitement EEG
+                         │
+                         ▼
+              Époques de 1 seconde
+                  61 × 501
+                         │
+                         ▼
+        Création de triplets temporels
+            Temporal Shuffling
+                         │
+                         ▼
+                  Shallow ConvNet
+                    = encodeur
+                         │
+                         ▼
+              Embedding EEG 100D
+                         │
+                         ▼
+        Prédiction : ordre correct ou mélangé
+                         │
+                         ▼
+             Backpropagation sur HBN
+                         │
+                         ▼
+          Poids de l’encodeur sauvegardés
 
+
+                 PHASE 2 : TÂCHE FINALE BBC2
+
+                  Dataset BBC2
+             EEG hyperscanning dyadique
+                         │
+        ┌────────────────┴────────────────┐
+        ▼                                 ▼
+ EEG participant A                  EEG participant B
+    61 × 501                           61 × 501
+        │                                 │
+        ▼                                 ▼
+ Encodeur pré-entraîné           Encodeur pré-entraîné
+        │                                 │
+        ▼                                 ▼
+ Embedding A 100D                 Embedding B 100D
+        │                                 │
+        └──────────────┬──────────────────┘
+                       ▼
+              Concaténation
+                 200 valeurs
+                       │
+                       ▼
+          Classificateur fully connected
+                       │
+                       ▼
+              Prédiction finale
+                  TD ou ASC
 
 ## *10. Plan de reproduction**
