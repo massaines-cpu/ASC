@@ -61,7 +61,7 @@ Ils utilisent 2 jeux de données différents :
 - découpage époques de 1 s
 - suppression des époques bruitées (autoreject)
 
-à la fin on a une matrice de **61 canaux x 501 échantillons**
+A la fin on a une matrice de **61 canaux x 501 échantillons**
 
 ## **4. Tâche prétexte**
 
@@ -234,3 +234,22 @@ PHASE 1 : PRÉ-ENTRAÎNEMENT SSL
                   TD ou ASC
 
 ## *10. Plan de reproduction**
+HBN
+↓
+HBNDataset
+↓
+TemporalShufflingDataset
+↓
+SSLTemporalShufflingModel
+↓
+train_ssl()
+↓
+encoder.pt
+↓
+BBC2Dataset
+↓
+MultiBrainModel
+↓
+train_multibrain()
+↓
+evaluate()
