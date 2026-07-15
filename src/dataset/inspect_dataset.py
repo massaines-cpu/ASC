@@ -101,7 +101,7 @@ def inspect_dyad(dyad_dir):
         first_npy = npy_files[0]
         npy_info = inspect_npy_file(first_npy)
 
-        print("\premier fichier .npy :", first_npy.name)
+        print("premier fichier .npy :", first_npy.name)
         print("shape :", npy_info["shape"])
         print("type :", npy_info["dtype"])
         print("participants :", npy_info["n_participants"])
@@ -171,9 +171,7 @@ def inspect_dataset(dataset_root):
 
     summary_df = pd.DataFrame(summary)
 
-    print("\n" + "=" * 70)
     print("RÉSUMÉ GLOBAL")
-    print("=" * 70)
     print(summary_df)
 
     print(
