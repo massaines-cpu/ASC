@@ -45,6 +45,10 @@ Ils utilisent 2 jeux de données différents :
 - segmentation en époques de 1 seconde
 
 **Brain-to-Brain Communication (BBC2)** :
+- 36 participants au total
+- organisés en 18 dyades
+- 9 dyades contrôle (TD–TD) 
+- 9 dyades mixtes (TD–ASC)
 - 142 120 époques dyadiques
 - 61 canaux EEG
 - 501 points temporels
