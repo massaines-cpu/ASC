@@ -338,7 +338,7 @@ if __name__ == "__main__":
         OUTPUT_CSV,
     )
 
-    print("\nTable globale :")
+    print("\ntable globale :")
     print(
         global_table[
             [
@@ -353,6 +353,6 @@ if __name__ == "__main__":
     )
 
     print(
-        "\nNombre de lignes :",
+        "\nnombre de lignes :",
         len(global_table)
     )

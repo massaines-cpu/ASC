@@ -57,7 +57,7 @@ class MultiBrainDataset(Dataset):
 if __name__ == "__main__":
 
     #préparation des labels
-    metadata = prepare_classification_table(
+    metadata1 = prepare_classification_table(
         metadata,
         target_column="eyes_code",
         allowed_classes=["YO", "YF"],
@@ -67,13 +67,13 @@ if __name__ == "__main__":
         },
     )
 
-    #création du Dataset
+    #création du dataset
     dataset = MultiBrainDataset(
-        metadata,
+        metadata1,
         dataset_root=PROJECT_ROOT / "data" / "data_toy",
     )
 
-    print("Nombre d'exemples :", len(dataset))
+    print("nombre d'exemples :", len(dataset))
 
     eeg_a, eeg_b, label = dataset[0]
 
