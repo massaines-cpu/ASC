@@ -322,7 +322,17 @@ if __name__ == "__main__":
     validate_filename_matching(
         global_table
     )
-
+    global_table = global_table.drop(
+        columns=[
+            "filename_condition",
+            "filename_eyes",
+            "filename_segment",
+            "filename_dyad",
+            'epoch_index',
+            'epoch_file',
+        ],
+        errors="ignore",  # évite une erreur si une colonne n'existe pas
+    )
     save_all_metadata(
         global_table,
         OUTPUT_CSV,

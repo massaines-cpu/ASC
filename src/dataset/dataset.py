@@ -6,22 +6,13 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+from labels import prepare_classification_table
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-def prepare_classification_table(
-    dataframe,
-    target_column,
-    allowed_classes,
-    label_map,
-):
-    filtered_df = dataframe[
-        dataframe[target_column].isin(allowed_classes)
-    ].copy()
+metadata_path = PROJECT_ROOT / "data" / "all_metadata.csv"
 
-    filtered_df["label"] = filtered_df[target_column].map(label_map)
-
-    return filtered_df
-
+metadata = pd.read_csv(metadata_path)
 
 class MultiBrainDataset(Dataset):
     def __init__(self, dataframe, dataset_root):
@@ -43,8 +34,49 @@ class MultiBrainDataset(Dataset):
 
         data = np.load(file_path)
 
-        eeg_a = torch.tensor(data[0], dtype=torch.float32)
-        eeg_b = torch.tensor(data[1], dtype=torch.float32)
-        label = torch.tensor(float(row["label"]), dtype=torch.float32)
+        eeg_a = data[0]
+        eeg_b = data[1]
+
+        eeg_a = torch.tensor(
+            eeg_a,
+            dtype=torch.float32,
+        )
+
+        eeg_b = torch.tensor(
+            eeg_b,
+            dtype=torch.float32,
+        )
+
+        label = torch.tensor(
+            row["label"],
+            dtype=torch.long,
+        )
 
         return eeg_a, eeg_b, label
+
+if __name__ == "__main__":
+
+    #préparation des labels
+    metadata = prepare_classification_table(
+        metadata,
+        target_column="eyes_code",
+        allowed_classes=["YO", "YF"],
+        label_map={
+            "YO": 0,
+            "YF": 1,
+        },
+    )
+
+    #création du Dataset
+    dataset = MultiBrainDataset(
+        metadata,
+        dataset_root=PROJECT_ROOT / "data" / "data_toy",
+    )
+
+    print("Nombre d'exemples :", len(dataset))
+
+    eeg_a, eeg_b, label = dataset[0]
+
+    print("EEG A :", eeg_a.shape)
+    print("EEG B :", eeg_b.shape)
+    print("Label :", label)
