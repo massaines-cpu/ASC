@@ -9,10 +9,10 @@ from dataset import MultiBrainDataset
 from labels import prepare_classification_table
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+chemin_projet = Path(__file__).resolve().parents[2]
 
-METADATA_PATH = PROJECT_ROOT / "data" / "all_metadata.csv"
-DATASET_ROOT = PROJECT_ROOT / "data" / "data_toy"
+chemin_metadata = chemin_projet / "data" / "all_metadata.csv"
+chemin_dataset = chemin_projet / "data" / "data_toy"
 
 #sépare le DataFrame selon les identifiants de dyades
 
@@ -43,7 +43,7 @@ def create_dataloaders(
     train_dyads,
     validation_dyads,
     test_dyads,
-    batch_size=8,
+    batch_size=10,
 ):
 # Crée les dataLoaders d'entraînement, validation et test.
 
@@ -91,7 +91,7 @@ def create_dataloaders(
 
 if __name__ == "__main__":
 
-    all_metadata = pd.read_csv(METADATA_PATH)
+    all_metadata = pd.read_csv(chemin_metadata)
 
     classification_table = prepare_classification_table(
         all_metadata,
@@ -105,18 +105,20 @@ if __name__ == "__main__":
 
     train_loader, validation_loader, test_loader = create_dataloaders(
         classification_table=classification_table,
-        dataset_root=DATASET_ROOT,
-        train_dyads=["J2", "J4", "J5", "J7"],
+        dataset_root=chemin_dataset,
+        train_dyads=["J2", "J4", "J5", "J7", "J8", "J1"],
         validation_dyads=["J10"],
         test_dyads=["J15"],
-        batch_size=8,
+        batch_size=5,
     )
 
     eeg_a, eeg_b, labels = next(iter(train_loader))
+    eeg_a, labels =
+    eeg_b, labels =
 
-    print("Nombre de batchs train :", len(train_loader))
-    print("Nombre de batchs validation :", len(validation_loader))
-    print("Nombre de batchs test :", len(test_loader))
+    print("nombre de batchs train :", len(train_loader))
+    print("nombre de batchs validation :", len(validation_loader))
+    print("nombre de batchs test :", len(test_loader))
 
     print("EEG A :", eeg_a.shape)
     print("EEG B :", eeg_b.shape)

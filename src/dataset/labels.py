@@ -6,7 +6,6 @@ import pandas as pd
 # Prépare un DataFrame pour une tâche de classification.
   #
   # Parameters
-  # ----------
   # metadata
   #     DataFrame contenant toutes les métadonnées.
   #
@@ -23,7 +22,6 @@ import pandas as pd
   #     Exemple : {"YO": 0, "YF": 1}.
   #
   # Returns
-  # -------
   # DataFrame filtré avec une colonne numérique "label".
 
 def prepare_classification_table(metadata,target_column,allowed_classes,label_map):
@@ -67,5 +65,5 @@ if __name__ == "__main__":
         ]
     ].head())
 
-    print("\nRépartition des labels :")
+    print("\nrépartition des labels :")
     print(eyes_table["label"].value_counts())
