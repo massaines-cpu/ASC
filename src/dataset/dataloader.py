@@ -113,8 +113,7 @@ if __name__ == "__main__":
     )
 
     eeg_a, eeg_b, labels = next(iter(train_loader))
-    eeg_a, labels =
-    eeg_b, labels =
+
 
     print("nombre de batchs train :", len(train_loader))
     print("nombre de batchs validation :", len(validation_loader))
