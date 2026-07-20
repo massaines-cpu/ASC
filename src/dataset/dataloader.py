@@ -8,6 +8,19 @@ from torch.utils.data import DataLoader
 from dataset import MultiBrainDataset
 from labels import prepare_classification_table
 
+# prépare les données pour l'entraînement.
+
+# Il réalise les étapes suivantes :
+#
+#   classification_table
+#           ↓
+#   séparation Train / Validation / Test
+#           ↓
+#   création des MultiBrainDataset
+#           ↓
+#   création des DataLoaders
+#           ↓
+#   batches utilisés pendant l'entraînement
 
 chemin_projet = Path(__file__).resolve().parents[2]
 
@@ -22,6 +35,7 @@ def split_by_dyad(
     validation_dyads,
     test_dyads,
 ):
+# Conserve uniquement les lignes appartenant aux dyades d'entraînement
     train_table = classification_table[
         classification_table["dyad_id"].isin(train_dyads)
     ].copy()
@@ -68,7 +82,7 @@ def create_dataloaders(
         test_table,
         dataset_root,
     )
-
+# Création des DataLoaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
