@@ -92,14 +92,12 @@ class ParticipantDataset(Dataset):
             Label numérique de la condition.
         """
 
-        # ----------------------------------------------------
         # Chaque fichier contient deux participants.
         #
         # On doit donc retrouver :
         #
         #   1. la ligne du fichier
         #   2. le participant demandé dans ce fichier
-        # ----------------------------------------------------
 
         # Division entière par 2.
         #
