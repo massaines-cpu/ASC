@@ -90,8 +90,7 @@ class SimpleParticipantClassifier(nn.Module):
 
         # 32 × 5120 = 163840
 
-        # Une couche linéaire attend une entrée sous forme
-        # de vecteur.
+        # Une couche linéaire attend une entrée sous forme de vecteur
 
         self.flatten = nn.Flatten()
 
@@ -144,9 +143,9 @@ class SimpleParticipantClassifier(nn.Module):
 
 # Cette partie permet simplement de vérifier que :
 
-# - le DataLoader fonctionne ;
-# - le modèle accepte les données ;
-# - les dimensions des sorties sont correctes.
+# - le DataLoader fonctionne
+# - le modèle accepte les données
+# - les dimensions des sorties sont correctes
 
 # Récupération du premier batch d'entraînement
 eeg, labels = next(iter(train_loader))

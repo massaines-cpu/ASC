@@ -1,4 +1,4 @@
-# Notes de projet – Stage IA EEG
+# Notes de projet Stage IA EEG
 
 ## Article de référence
 
@@ -111,7 +111,7 @@ Pour chaque modification réalisée, noter :
 
 ---
 
-# Bilan réunion avec Amel – Semaine 4
+# Bilan réunion avec Amel Semaine 4
 
 ## Questions à éclaircir
 
@@ -280,7 +280,7 @@ Les labels devront donc être générés à partir des métadonnées disponibles
 
 ---
 
-# Bilan réunion avec Amel – Semaine 5
+# Bilan réunion avec Amel Semaine 5
 
 ## Travail à réaliser
 

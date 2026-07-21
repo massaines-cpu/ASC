@@ -1,12 +1,10 @@
-# ============================================================
 # Création des DataLoaders au niveau du participant
-#
+
 # Le découpage Train / Validation / Test reste effectué
 # selon les dyades pour éviter les fuites de données.
-#
+
 # Ensuite, chaque fichier de dyade est transformé en deux
 # exemples individuels par ParticipantDataset.
-# ============================================================
 
 from pathlib import Path
 

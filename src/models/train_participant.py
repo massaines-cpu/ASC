@@ -22,20 +22,20 @@ from src.models.participant_model import (
 )
 
 
-# Racine du projet ASC
+#racine du projet ASC
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-# Lecture des métadonnées
+#lecture des métadonnées
 
 metadata = pd.read_csv(
     PROJECT_ROOT / "data" / "all_metadata.csv"
 )
 
 
-# Préparation de la classification :
-#
+#préparation de la classification :
+
 # YO -> 0
 # YF -> 1
 
@@ -50,7 +50,7 @@ classification_table = prepare_classification_table(
 )
 
 
-# Création des DataLoaders
+#création des DataLoaders
 
 train_loader, validation_loader, test_loader = (
     create_participant_dataloaders(
@@ -72,15 +72,15 @@ train_loader, validation_loader, test_loader = (
 
 
 
-# Création du modèle
+#création du modèle
 
 model = SimpleParticipantClassifier()
 
 
-# Fonction de perte
-#
-# CrossEntropyLoss attend :
-#
+#fonction de perte
+
+#crossEntropyLoss attend :
+
 # predictions : (batch_size, number_of_classes)
 # labels      : (batch_size)
 
@@ -88,7 +88,7 @@ criterion = nn.CrossEntropyLoss()
 
 
 # Optimiseur
-#
+
 # Adam modifiera les paramètres du modèle afin de réduire
 # progressivement la loss.
 
@@ -122,10 +122,10 @@ for eeg, labels in train_loader:
     optimizer.zero_grad()
 
     # 2. Forward pass
-    #
+
     # eeg :
     # (batch_size, 32, 5120)
-    #
+
     # predictions :
     # (batch_size, 2)
 

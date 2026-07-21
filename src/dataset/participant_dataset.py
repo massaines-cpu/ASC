@@ -100,9 +100,9 @@ class ParticipantDataset(Dataset):
         #   2. le participant demandé dans ce fichier
 
         # Division entière par 2.
-        #
+
         # Exemples :
-        #
+
         # idx = 0 → file_index = 0
         # idx = 1 → file_index = 0
         # idx = 2 → file_index = 1
@@ -111,15 +111,15 @@ class ParticipantDataset(Dataset):
 
         # Le reste de la division par 2 permet de choisir
         # le participant.
-        #
+
         # idx pair   → participant_index = 0
         # idx impair → participant_index = 1
         participant_index = idx % 2
 
-        # Récupère la ligne correspondant au fichier
+        #récupère la ligne correspondant au fichier
         row = self.classification_table.iloc[file_index]
 
-        # Construction du chemin vers le fichier EEG
+        #construction du chemin vers le fichier EEG
         file_path = (
             self.dataset_root
             / row["dyad_id"]
@@ -127,15 +127,15 @@ class ParticipantDataset(Dataset):
             / row["filename"]
         )
 
-        # Charge le tableau NumPy de forme :
-        #
+        #charge le tableau NumPy de forme :
+
         # (2, 32, 5120)
         data = np.load(file_path)
 
-        # Sélectionne uniquement le participant demandé.
-        #
-        # Résultat :
-        #
+        #sélectionne uniquement le participant demandé.
+
+        #résultat :
+
         # (32, 5120)
         eeg = data[participant_index]
 
