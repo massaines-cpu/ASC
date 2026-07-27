@@ -1,11 +1,5 @@
-torch
-torchvision
-torchaudio
-scikit-learn
-segmentation-models-pytorch
-opencv-python
-matplotlib
-pandas
-albumentations
-mne
-numpy
+numpy==2.5.1
+pandas==3.0.3
+matplotlib==3.11.0
+scikit-learn==1.9.0
+torch==2.13.0
