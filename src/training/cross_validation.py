@@ -71,7 +71,6 @@ DEVELOPMENT_DYADS = [
     "J7",
     "J8",
     "J10",
-    'J15',
 ]
 
 # J15 reste en dehors de toute la cross-validation.
@@ -79,7 +78,7 @@ DEVELOPMENT_DYADS = [
 # Attention :
 # tant que nous sélectionnons l'architecture ou les hyperparamètres,
 # nous ne devons pas interpréter les performances sur J15.
-TEST_DYADS = []
+TEST_DYADS = ['J15']
 
 # Nombre d'exemples transmis au modèle avant chaque mise à jour des poids.
 BATCH_SIZE = 5
@@ -107,7 +106,7 @@ RANDOM_SEED = 42
 #
 # Les tableaux, historiques et graphiques sont placés dans results/protocol_B_j15_test.
 # Les poids des meilleurs modèles sont placés dans models/protocol_B_j15_test.
-EXPERIMENT_NAME = "protocol_A_all_dyads"
+EXPERIMENT_NAME = "protocol_B_j15_test"
 RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
