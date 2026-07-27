@@ -43,7 +43,7 @@ Chercher un autre jeu de données permettant de reproduire la méthode.
 
 # Compréhension du pipeline
 
-être capable d'expliquer le fonctionnement complet du modèle à Amel.
+Je dois être capable d'expliquer le fonctionnement complet du modèle à Amel.
 
 L'objectif n'est pas seulement que le code fonctionne, mais que je comprenne précisément chaque étape.
 
@@ -82,15 +82,15 @@ Ne pas modifier immédiatement la méthode.
 
 Objectif :
 
-1. reproduire la méthode originale 
-2. comprendre pourquoi chaque choix a été fait
-3. seulement ensuite commencer les adaptations
+1. reproduire la méthode originale ;
+2. comprendre pourquoi chaque choix a été fait ;
+3. seulement ensuite commencer les adaptations.
 
 Pour chaque modification réalisée, noter :
 
-- ce qui a été changé
-- pourquoi ce changement a été effectué
-- son impact sur les résultats
+- ce qui a été changé ;
+- pourquoi ce changement a été effectué ;
+- son impact sur les résultats.
 
 ---
 

@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 *.py[cod]
 *$py.class
-
+explications.md
+README.md
 ibs.db
 data/
 
@@ -47,7 +48,7 @@ htmlcov/
 data/
 datasets/
 downloads/
-reunion_notes
+réunion_notes/
 schema/
 
 runs/
