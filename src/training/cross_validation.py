@@ -40,7 +40,7 @@ from torch import nn
 
 from src.dataset.labels import prepare_classification_table
 from src.dataset.dataloader_participant import create_participant_dataloaders
-from src.models.participant_model import SimpleParticipantClassifier
+from src.models.participant_linear_model import SimpleParticipantClassifier
 
 
 # ==================================================================
@@ -106,7 +106,7 @@ RANDOM_SEED = 42
 #
 # Les tableaux, historiques et graphiques sont placés dans results/protocol_B_j15_test.
 # Les poids des meilleurs modèles sont placés dans models/protocol_B_j15_test.
-EXPERIMENT_NAME = "protocol_B_j15_test"
+EXPERIMENT_NAME = "protocol_B_j15_test_repaired_J7"
 RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
@@ -518,7 +518,7 @@ def train_one_fold(
     train_loader, validation_loader, _ = (
         create_participant_dataloaders(
             classification_table=classification_table,
-            dataset_root=PROJECT_ROOT / "data" / "data_toy",
+            dataset_root=PROJECT_ROOT / "data" / "data_toy_repaired",
             train_dyads=train_dyads,
             validation_dyads=[validation_dyad],
             test_dyads=TEST_DYADS,
@@ -863,5 +863,8 @@ def main() -> None:
 # Elle ne s'exécute que lorsque le fichier est lancé directement :
 #
 #     python cross_validation.py
+
+
+
 if __name__ == "__main__":
     main()

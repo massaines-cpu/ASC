@@ -19,7 +19,7 @@ from torch import nn
 
 from src.dataset.labels import prepare_classification_table
 from src.dataset.dataloader_participant import create_participant_dataloaders
-from src.models.participant_model import SimpleParticipantClassifier
+from src.models.participant_linear_model import SimpleParticipantClassifier
 
 
 # ------------------------------------------------------------------

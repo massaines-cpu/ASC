@@ -78,80 +78,68 @@ class ParticipantDataset(Dataset):
         """
         Charge un seul participant.
 
-        Paramètre
-        ---------
-        idx : int
-            Indice de l'exemple participant demandé.
-
         Retour
         ------
         eeg : torch.Tensor
-            EEG d'un seul participant, de forme (32, 5120).
+            EEG standardisé de forme (32, 5120).
 
         label : torch.Tensor
             Label numérique de la condition.
         """
 
-        # Chaque fichier contient deux participants.
-        #
-        # On doit donc retrouver :
-        #
-        #   1. la ligne du fichier
-        #   2. le participant demandé dans ce fichier
-
-        # Division entière par 2.
-
-        # Exemples :
-
-        # idx = 0 → file_index = 0
-        # idx = 1 → file_index = 0
-        # idx = 2 → file_index = 1
-        # idx = 3 → file_index = 1
         file_index = idx // 2
-
-        # Le reste de la division par 2 permet de choisir
-        # le participant.
-
-        # idx pair   → participant_index = 0
-        # idx impair → participant_index = 1
         participant_index = idx % 2
 
-        #récupère la ligne correspondant au fichier
         row = self.classification_table.iloc[file_index]
 
-        #construction du chemin vers le fichier EEG
         file_path = (
-            self.dataset_root
-            / row["dyad_id"]
-            / "epochs"
-            / row["filename"]
+                self.dataset_root
+                / row["dyad_id"]
+                / "epochs"
+                / row["filename"]
         )
 
-        #charge le tableau NumPy de forme :
-
-        # (2, 32, 5120)
+        # Forme attendue : (2, 32, 5120)
         data = np.load(file_path)
 
-        #sélectionne uniquement le participant demandé.
+        # Sélection d'un participant : (32, 5120)
+        eeg = data[participant_index].astype(np.float32)
 
-        #résultat :
-
-        # (32, 5120)
-        eeg = data[participant_index]
-
-        # Conversion NumPy vers tenseur PyTorch
-        eeg = torch.tensor(
-            eeg,
-            dtype=torch.float32,
+        # ----------------------------------------------------------
+        # Standardisation canal par canal
+        # ----------------------------------------------------------
+        #
+        # Pour chaque électrode, on calcule la moyenne et l'écart-type
+        # sur les 5120 points temporels.
+        #
+        # Après standardisation, chaque canal aura approximativement :
+        #
+        # moyenne = 0
+        # écart-type = 1
+        channel_mean = eeg.mean(
+            axis=1,
+            keepdims=True,
         )
 
-        # Conversion du label en tenseur entier
+        channel_std = eeg.std(
+            axis=1,
+            keepdims=True,
+        )
+
+        eeg = (eeg - channel_mean) / (channel_std + 1e-8)
+
+        # Comme eeg est déjà en float32, torch.from_numpy évite une copie
+        # supplémentaire inutile.
+        eeg = torch.from_numpy(eeg)
+
         label = torch.tensor(
             row["label"],
             dtype=torch.long,
         )
 
         return eeg, label
+
+
 
 
 if __name__ == "__main__":
