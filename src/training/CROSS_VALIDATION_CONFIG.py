@@ -54,10 +54,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Dyades utilisées pour développer et comparer les modèles.
 # Chaque dyade sera utilisée exactement une fois comme validation.
-DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10"]
+DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10", 'J15']
 
 # J15 reste en dehors de toute la cross-validation (test final unique).
-TEST_DYADS = ["J15"]
+TEST_DYADS = []
 
 BATCH_SIZE = 5
 NUMBER_OF_EPOCHS = 100
@@ -80,7 +80,7 @@ MODEL_NAME = "eegnet"
 
 # Le nom du modèle est inclus dans EXPERIMENT_NAME pour ne pas écraser
 # les résultats d'une architecture avec ceux d'une autre.
-EXPERIMENT_NAME = f"protocol_B_{MODEL_NAME}_standardized"
+EXPERIMENT_NAME = f"protocol_A_{MODEL_NAME}_standardized"
 RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
