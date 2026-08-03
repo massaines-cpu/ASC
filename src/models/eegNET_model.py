@@ -31,9 +31,8 @@ class EEGNet(nn.Module):
         # Nombre de filtres après la convolution spatiale depthwise.
         spatial_filters = temporal_filters * depth_multiplier
 
-        # ----------------------------------------------------------
         # Bloc 1 : convolution temporelle
-        # ----------------------------------------------------------
+
         # L'entrée aura la forme :
         # [batch, 1, electrodes, time]
         #
@@ -50,9 +49,8 @@ class EEGNet(nn.Module):
             nn.BatchNorm2d(temporal_filters),
         )
 
-        # ----------------------------------------------------------
         # Bloc 2 : convolution spatiale depthwise
-        # ----------------------------------------------------------
+
         # Le noyau couvre les 32 électrodes en une seule fois.
         # Il apprend des combinaisons spatiales entre les canaux EEG.
         self.spatial_block = nn.Sequential(
@@ -69,9 +67,8 @@ class EEGNet(nn.Module):
             nn.Dropout(dropout_rate),
         )
 
-        # ----------------------------------------------------------
         # Bloc 3 : convolution séparable
-        # ----------------------------------------------------------
+
         # Première convolution : profondeur par profondeur.
         # Deuxième convolution : combinaison des filtres.
         self.separable_block = nn.Sequential(

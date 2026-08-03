@@ -81,7 +81,7 @@ MODEL_NAME = "eegnet"
 # Le nom du modèle est inclus dans EXPERIMENT_NAME pour ne pas écraser
 # les résultats d'une architecture avec ceux d'une autre.
 EXPERIMENT_NAME = f"protocol_A_{MODEL_NAME}_standardized"
-RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
+RESULTS_DIR = PROJECT_ROOT / "results_j8_biais" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -231,7 +231,7 @@ def evaluate_fold(validation_dyad: str, model: nn.Module, loader) -> None:
     prédictions, matrice de confusion et classification report.
 
     Le rapport est affiché en console ET sauvegardé dans
-    results/<experiment>/fold_<dyade>/evaluation_report.txt
+    results_j8_biais/<experiment>/fold_<dyade>/evaluation_report.txt
     """
     labels, predictions, probabilities = collect_predictions(model, loader)
     correct_mask = predictions == labels

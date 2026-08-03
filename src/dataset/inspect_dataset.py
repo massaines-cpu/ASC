@@ -1,434 +1,362 @@
-"""Inspection du dataset EEG (dyades, fichiers .npy, manifests).
+"""Diagnostic des amplitudes EEG sur l'ensemble des dyades.
 
-Ce script explore le contenu de data/data_toy pour vérifier :
-- la présence et la cohérence des fichiers de chaque dyade ;
-- la forme et le type des signaux EEG (.npy) ;
-- le contenu des manifests (labels, conditions, fréquences...) ;
-- quelques statistiques globales sur les signaux.
+Le script :
+1. parcourt tous les fichiers .npy de toutes les dyades
+2. vérifie les formes, NaN et valeurs infinies
+3. calcule des statistiques d'amplitude par fichier
+4. repère les fichiers dépassant un seuil absolu exploratoire
+5. repère aussi les fichiers anormaux PAR RAPPORT AU RESTE DU DATASET,
+   même s'ils restent sous le seuil absolu
+6. produit deux tableaux CSV :
+   - un tableau détaillé par fichier
+   - un résumé par dyade.
+
+Important
+---------
+Le seuil absolu n'est interprétable que si l'unité des données est connue.
+Un seuil absolu fixe peut aussi rater des anomalies plus modérées mais
+réelles (ex: un cluster de fichiers 10-40x plus grands que la norme du
+dataset, sans qu'aucun ne dépasse individuellement le seuil). Le critère
+relatif ci-dessous comble ce manque.
 """
 
 from pathlib import Path
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
+# ------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATASET_ROOT = PROJECT_ROOT / "data" / "data_toy"
+RESULTS_DIR = PROJECT_ROOT / "results" / "dataset_diagnostic_2"
+
+# Seuil exploratoire utilisé pour repérer les très grandes amplitudes.
+# Il ne constitue pas encore un seuil universel de rejet EEG.
+ABSOLUTE_AMPLITUDE_THRESHOLD = 0.01
+
+# Nombre de MAD (median absolute deviation) au-delà duquel un fichier
+# est considéré comme anormal PAR RAPPORT AU RESTE DU DATASET, même
+# s'il ne dépasse pas le seuil absolu. 3 correspond approximativement
+# à 3 écarts-types dans une distribution gaussienne.
+RELATIVE_OUTLIER_THRESHOLD = 3.0
+
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def find_dyad_directories(dataset_root):
-    """Retourne tous les dossiers de dyades (J1, J2, J4, ...), triés."""
-    return sorted(
-        path
-        for path in dataset_root.iterdir()
-        if path.is_dir() and path.name.startswith("J")
-    )
+# ------------------------------------------------------------------
+# Recherche des fichiers
+# ------------------------------------------------------------------
+
+def find_epoch_files(dataset_root: Path) -> list[Path]:
+    """Retourne tous les fichiers EEG .npy du dataset."""
+
+    return sorted(dataset_root.glob("J*/epochs/*.npy"))
 
 
-def inspect_npy_file(npy_path):
-    """Lit les métadonnées d'un fichier .npy sans le charger en mémoire.
+# ------------------------------------------------------------------
+# Diagnostic d'un seul fichier
+# ------------------------------------------------------------------
 
-    mmap_mode="r" ouvre le fichier en lecture "à la demande" : seules
-    les métadonnées (shape, dtype) sont lues ici, pas les données elles-mêmes.
+def analyse_eeg_file(npy_path: Path, threshold: float) -> dict:
+    """Calcule les principales statistiques d'un fichier EEG.
+
+    La forme attendue est :
+        [participants, canaux, temps]
+
+    Le calcul des quantiles permet de décrire la distribution sans se
+    limiter au minimum et au maximum, qui peuvent dépendre d'un seul pic.
     """
+
     data = np.load(npy_path, mmap_mode="r")
-    return {
-        "shape": data.shape,
-        "dtype": str(data.dtype),
-        "n_participants": data.shape[0] if data.ndim >= 1 else None,
-        "n_channels": data.shape[1] if data.ndim >= 2 else None,
-        "n_times": data.shape[2] if data.ndim >= 3 else None,
-    }
+    data = np.asarray(data, dtype=np.float64)
 
+    finite_mask = np.isfinite(data)
+    finite_values = data[finite_mask]
 
-def inspect_manifest(manifest_path):
-    """Lit le manifest d'une dyade et en extrait les infos clés."""
-    manifest = pd.read_csv(manifest_path)
+    n_nan = int(np.isnan(data).sum())
+    n_inf = int(np.isinf(data).sum())
 
-    def unique_values(column):
-        return (
-            sorted(manifest[column].dropna().unique().tolist())
-            if column in manifest.columns
-            else []
-        )
-
-    summary = {
-        "n_rows": len(manifest),
-        "columns": list(manifest.columns),
-        "eyes_codes": unique_values("eyes_code"),
-        "conditions": unique_values("condition_code"),
-        "shapes": unique_values("matrix_shape"),
-        "sampling_frequencies": unique_values("sampling_frequency_hz"),
-    }
-    return manifest, summary
-
-
-def inspect_signal_statistics(npy_files):
-    """Calcule des statistiques globales sur tous les fichiers .npy.
-
-    Les fichiers sont parcourus un par un afin d'éviter de concaténer
-    toutes les données EEG dans un seul énorme tableau.
-
-    Statistiques calculées :
-    - moyenne globale ;
-    - écart-type global ;
-    - minimum global ;
-    - maximum global ;
-    - nombre total de valeurs ;
-    - nombre de valeurs non finies : NaN ou inf.
-    """
-
-    total_sum = 0.0
-    total_squared_sum = 0.0
-    total_values = 0
-
-    global_min = np.inf
-    global_max = -np.inf
-
-    n_nan = 0
-    n_inf = 0
-
-    for npy_file in npy_files:
-        # mmap_mode permet de ne pas charger immédiatement tout le fichier.
-        data = np.load(npy_file, mmap_mode="r")
-
-        # Conversion en float64 pour rendre les sommes plus précises.
-        data_float = np.asarray(data, dtype=np.float64)
-
-        # Vérification des valeurs anormales.
-        n_nan += np.isnan(data_float).sum()
-        n_inf += np.isinf(data_float).sum()
-
-        # On conserve seulement les valeurs finies pour les statistiques.
-        finite_values = data_float[np.isfinite(data_float)]
-
-        if finite_values.size == 0:
-            continue
-
-        total_sum += finite_values.sum()
-        total_squared_sum += np.square(finite_values).sum()
-        total_values += finite_values.size
-
-        global_min = min(global_min, finite_values.min())
-        global_max = max(global_max, finite_values.max())
-
-    if total_values == 0:
-        return {
-            "mean": np.nan,
-            "std": np.nan,
-            "min": np.nan,
-            "max": np.nan,
-            "n_values": 0,
-            "n_nan": int(n_nan),
-            "n_inf": int(n_inf),
-        }
-
-    global_mean = total_sum / total_values
-
-    # Var(X) = E[X²] - E[X]²
-    global_variance = (
-        total_squared_sum / total_values
-        - global_mean**2
-    )
-
-    # Petite protection contre une valeur négative due aux arrondis numériques.
-    global_variance = max(global_variance, 0.0)
-    global_std = np.sqrt(global_variance)
+    absolute_values = np.abs(finite_values)
 
     return {
-        "mean": global_mean,
-        "std": global_std,
-        "min": global_min,
-        "max": global_max,
-        "n_values": int(total_values),
-        "n_nan": int(n_nan),
-        "n_inf": int(n_inf),
-    }
-def find_extreme_values(npy_files, threshold=0.01):
-    """Recherche les fichiers contenant des valeurs EEG extrêmes.
+        "dyad_id": npy_path.parents[1].name,
+        "filename": npy_path.name,
+        "shape": str(data.shape),
 
-    Parameters
-    ----------
-    npy_files : list[Path]
-        Liste des fichiers .npy de la dyade.
+        # Statistiques générales
+        "moyenne": float(finite_values.mean()),
+        "écart-type": float(finite_values.std()),
+        "minimum": float(finite_values.min()),
+        "maximum": float(finite_values.max()),
 
-    threshold : float
-        Une valeur est considérée comme extrême lorsque sa valeur absolue
-        dépasse ce seuil.
+        # Étendue totale du signal
+        "peak_to_peak": float(
+            finite_values.max() - finite_values.min()
+        ),
 
-        Ici, 0.01 correspond à 10 mV si les données sont exprimées en volts,
-        ce qui est déjà extrêmement grand pour de l'EEG.
+        # Distribution des amplitudes absolues
+        "max_absolute": float(absolute_values.max()),
+        "95_percentile": float(np.quantile(absolute_values, 0.95)),
+        "99_percentile": float(np.quantile(absolute_values, 0.99)),
+        "99_9_percentile": float(np.quantile(absolute_values, 0.999)),
 
-    Returns
-    -------
-    pandas.DataFrame
-        Tableau contenant, pour chaque fichier problématique :
-        - le nom du fichier ;
-        - le minimum et le maximum ;
-        - la plus grande amplitude absolue ;
-        - le nombre de valeurs dépassant le seuil ;
-        - le participant, le canal et l'instant du maximum absolu.
-    """
-    rows = []
-
-    for npy_file in npy_files:
-        data = np.load(npy_file, mmap_mode="r")
-
-        minimum = float(np.min(data))
-        maximum = float(np.max(data))
-        absolute_data = np.abs(data)
-
-        max_absolute_value = float(np.max(absolute_data))
-        n_extreme_values = int(np.sum(absolute_data > threshold))
-
-        if n_extreme_values == 0:
-            continue
-
-        # np.argmax renvoie un indice aplati.
-        flat_index = int(np.argmax(absolute_data))
-
-        # On reconvertit cet indice en :
-        # participant, canal et point temporel.
-        participant_index, channel_index, time_index = np.unravel_index(
-            flat_index,
-            data.shape,
-        )
-
-        rows.append(
-            {
-                "filename": npy_file.name,
-                "minimum": minimum,
-                "maximum": maximum,
-                "max_absolute_value": max_absolute_value,
-                "n_values_above_threshold": n_extreme_values,
-                "participant_index": participant_index,
-                "channel_index": channel_index,
-                "time_index": time_index,
-            }
-        )
-
-    if not rows:
-        return pd.DataFrame(
-            columns=[
-                "filename",
-                "minimum",
-                "maximum",
-                "max_absolute_value",
-                "n_values_above_threshold",
-                "participant_index",
-                "channel_index",
-                "time_index",
-            ]
-        )
-
-    result = pd.DataFrame(rows)
-
-    return result.sort_values(
-        by="max_absolute_value",
-        ascending=False,
-    ).reset_index(drop=True)
-def inspect_extreme_file(npy_path, threshold=0.01):
-    """Analyse en détail un fichier EEG contenant des valeurs extrêmes.
-
-    Le fichier EEG possède la forme :
-
-        (participants, canaux, temps)
-
-    La fonction compte, pour chaque participant et chaque canal,
-    combien de points dépassent le seuil en valeur absolue.
-    """
-    data = np.load(npy_path)
-
-    rows = []
-
-    for participant_index in range(data.shape[0]):
-        for channel_index in range(data.shape[1]):
-            signal = data[participant_index, channel_index, :]
-
-            n_extreme = int(np.sum(np.abs(signal) > threshold))
-
-            if n_extreme == 0:
-                continue
-
-            rows.append(
-                {
-                    "participant_index": participant_index,
-                    "channel_index": channel_index,
-                    "minimum": float(signal.min()),
-                    "maximum": float(signal.max()),
-                    "standard_deviation": float(signal.std()),
-                    "n_values_above_threshold": n_extreme,
-                }
-            )
-
-    if not rows:
-        return pd.DataFrame(
-            columns=[
-                "participant_index",
-                "channel_index",
-                "minimum",
-                "maximum",
-                "standard_deviation",
-                "n_values_above_threshold",
-            ]
-        )
-
-    result = pd.DataFrame(rows)
-
-    return result.sort_values(
-        by="n_values_above_threshold",
-        ascending=False,
-    ).reset_index(drop=True)
-
-def inspect_dyad(dyad_dir):
-    """Inspecte tous les fichiers associés à une dyade et affiche un résumé."""
-    dyad_id = dyad_dir.name
-
-    epochs_dir = dyad_dir / "epochs"
-    metadata_dir = dyad_dir / "metadata"
-    manifest_path = dyad_dir / f"{dyad_id}_epochs_manifest.csv"
-    channels_path = dyad_dir / f"{dyad_id}_channels.csv"
-
-    npy_files = sorted(epochs_dir.glob("*.npy")) if epochs_dir.exists() else []
-    metadata_files = (
-        sorted(metadata_dir.glob("*.csv")) if metadata_dir.exists() else []
-    )
-
-    print("\n" + "=" * 70)
-    print(f"Dyade : {dyad_id}")
-    print("=" * 70)
-    print("dossier :", dyad_dir)
-    print("nb de fichiers .npy :", len(npy_files))
-    print("nb de fichiers metadata :", len(metadata_files))
-    print("Manifest présent :", manifest_path.exists())
-    print("fichier canaux présent :", channels_path.exists())
-
-    extreme_values = find_extreme_values(
-        npy_files=npy_files,
-        threshold=0.01,
-    )
-
-    print("\nRecherche de valeurs extrêmes |x| > 0.01")
-
-    if extreme_values.empty:
-        print("Aucune valeur extrême détectée.")
-    else:
-        print(
-            extreme_values.to_string(
-                index=False,
-                float_format=lambda value: f"{value:.8e}",
-            )
-        )
-    if dyad_id == "J7" and not extreme_values.empty:
-        most_extreme_filename = extreme_values.iloc[0]["filename"]
-        most_extreme_path = epochs_dir / most_extreme_filename
-
-        channel_details = inspect_extreme_file(
-            npy_path=most_extreme_path,
-            threshold=0.01,
-        )
-
-        print(
-            "\nDétail des participants et canaux contaminés dans :",
-            most_extreme_filename,
-        )
-
-        print(
-            channel_details.to_string(
-                index=False,
-                float_format=lambda value: f"{value:.8e}",
-            )
-        )
-    # --- Inspection du premier fichier .npy ---
-    if npy_files:
-        first_npy = npy_files[0]
-        npy_info = inspect_npy_file(first_npy)
-
-        print("premier fichier .npy :", first_npy.name)
-        print("shape :", npy_info["shape"])
-        print("type :", npy_info["dtype"])
-        print("participants :", npy_info["n_participants"])
-        print("canaux :", npy_info["n_channels"])
-        print("points temporels :", npy_info["n_times"])
-
-    # --- Inspection du manifest ---
-    # --- Inspection du manifest ---
-    manifest = None
-
-    if manifest_path.exists():
-        manifest, manifest_info = inspect_manifest(manifest_path)
-
-        print("\nManifest")
-        print("nb de lignes :", manifest_info["n_rows"])
-        print("labels yeux :", manifest_info["eyes_codes"])
-        print("conditions :", manifest_info["conditions"])
-        print("shapes déclarées :", manifest_info["shapes"])
-        print("fréquences déclarées :", manifest_info["sampling_frequencies"])
-
-        if "eyes_code" in manifest.columns:
-            print("\nrépartition YO / YF :")
-            print(manifest["eyes_code"].value_counts(dropna=False))
-
-        if "condition_name" in manifest.columns:
-            print("\nrépartition par condition :")
-            print(manifest["condition_name"].value_counts(dropna=False))
-
-        if len(manifest) != len(npy_files):
-            print(
-                "\nATTENTION : le nombre de lignes du manifest "
-                "ne correspond pas au nombre de fichiers .npy."
-            )
-        else:
-            print("\ncohérence manifest / fichiers .npy : OK")
-
-    # Ce bloc est indépendant de l'existence du manifest.
-    if npy_files:
-        stats = inspect_signal_statistics(npy_files)
-
-        print("\nStatistiques globales des signaux EEG")
-        print(f"Moyenne : {stats['mean']:.8e}")
-        print(f"Écart-type : {stats['std']:.8e}")
-        print(f"Minimum : {stats['min']:.8e}")
-        print(f"Maximum : {stats['max']:.8e}")
-        print(f"Nombre total de valeurs : {stats['n_values']}")
-        print(f"Nombre de NaN : {stats['n_nan']}")
-        print(f"Nombre de valeurs infinies : {stats['n_inf']}")
-
-    return {
-        "dyad_id": dyad_id,
-        "n_npy_files": len(npy_files),
-        "n_metadata_files": len(metadata_files),
-        "manifest_exists": manifest_path.exists(),
+        # Contrôles de qualité
+        "n_above_threshold": int(
+            np.sum(absolute_values > threshold)
+        ),
+        "n_nan": n_nan,
+        "n_inf": n_inf,
     }
 
 
-def inspect_dataset(dataset_root):
-    """Inspecte l'ensemble du dataset et retourne un résumé par dyade."""
-    dataset_root = Path(dataset_root)
+# ------------------------------------------------------------------
+# Diagnostic de tout le dataset
+# ------------------------------------------------------------------
 
-    if not dataset_root.exists():
+def analyse_dataset(
+    dataset_root: Path,
+    threshold: float,
+) -> pd.DataFrame:
+    """Analyse tous les fichiers EEG et retourne un tableau détaillé."""
+
+    npy_files = find_epoch_files(dataset_root)
+
+    if not npy_files:
         raise FileNotFoundError(
-            f"le dossier du dataset n'existe pas : {dataset_root}"
+            f"Aucun fichier .npy trouvé dans {dataset_root}"
         )
 
-    dyad_dirs = find_dyad_directories(dataset_root)
+    rows = [
+        analyse_eeg_file(
+            npy_path=npy_path,
+            threshold=threshold,
+        )
+        for npy_path in npy_files
+    ]
 
-    print("racine du dataset :", dataset_root)
-    print("nombre de dyades trouvées :", len(dyad_dirs))
-    print("dyades :", [path.name for path in dyad_dirs])
+    return pd.DataFrame(rows)
 
-    summary = [inspect_dyad(dyad_dir) for dyad_dir in dyad_dirs]
-    summary_df = pd.DataFrame(summary)
+
+# ------------------------------------------------------------------
+# Détection relative (nouveau) : anormal par rapport au reste du dataset
+# ------------------------------------------------------------------
+
+def flag_relative_outliers(
+    file_results: pd.DataFrame,
+    k: float = RELATIVE_OUTLIER_THRESHOLD,
+) -> pd.DataFrame:
+    """Signale les fichiers dont l'amplitude est anormalement grande
+    PAR RAPPORT À LA DISTRIBUTION DU DATASET ENTIER, indépendamment
+    du seuil absolu.
+
+    Méthode :
+    - on travaille en échelle log10, car les amplitudes EEG varient sur
+      plusieurs ordres de grandeur (comparer les valeurs brutes n'aurait
+      pas de sens) ;
+    - on utilise la médiane et la MAD (median absolute deviation) plutôt
+      que la moyenne et l'écart-type classiques, car la médiane et la
+      MAD restent fiables même quand quelques fichiers sont déjà des
+      valeurs extrêmes (elles ne "tirent" pas le seuil vers le haut,
+      contrairement à la moyenne/écart-type).
+    """
+
+    file_results = file_results.copy()
+
+    log_max_absolute = np.log10(file_results["max_absolute"])
+
+    median_log = log_max_absolute.median()
+    mad_log = (log_max_absolute - median_log).abs().median()
+
+    # 1.4826 rend la MAD comparable à un écart-type dans le cas d'une
+    # distribution approximativement gaussienne (facteur de normalisation
+    # standard pour la MAD).
+    scaled_mad = mad_log * 1.4826
+
+    # Évite une division par zéro si toutes les valeurs sont identiques.
+    if scaled_mad == 0:
+        relative_score = pd.Series(0.0, index=file_results.index)
+    else:
+        relative_score = (log_max_absolute - median_log) / scaled_mad
+
+    file_results["relative_amplitude_score"] = relative_score
+    file_results["is_outlier_relative"] = relative_score > k
+
+    return file_results
+
+
+# ------------------------------------------------------------------
+# Résumé par dyade
+# ------------------------------------------------------------------
+
+def create_dyad_summary(
+    file_results: pd.DataFrame,
+) -> pd.DataFrame:
+    """Agrège les résultats des fichiers pour comparer les dyades."""
+
+    return (
+        file_results
+        .groupby("dyad_id", as_index=False)
+        .agg(
+            n_files=("filename", "count"),
+            mean_std=("écart-type", "mean"),
+            maximum_absolute=("max_absolute", "max"),
+            maximum_peak_to_peak=("peak_to_peak", "max"),
+            median_q99_absolute=("99_percentile", "median"),
+            n_extreme_files=(
+                "n_above_threshold",
+                lambda values: int((values > 0).sum()),
+            ),
+            total_extreme_values=(
+                "n_above_threshold",
+                "sum",
+            ),
+            n_relative_outliers=(
+                "is_outlier_relative",
+                "sum",
+            ),
+            total_nan=("n_nan", "sum"),
+            total_inf=("n_inf", "sum"),
+        )
+        .sort_values("maximum_absolute", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+# ------------------------------------------------------------------
+# Visualisation de la distribution entre dyades
+# ------------------------------------------------------------------
+
+def save_amplitude_plot(
+    file_results: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    """Trace l'amplitude absolue maximale de chaque fichier par dyade."""
+
+    dyad_order = sorted(file_results["dyad_id"].unique())
+
+    values = [
+        file_results.loc[
+            file_results["dyad_id"] == dyad_id,
+            "max_absolute",
+        ].to_numpy()
+        for dyad_id in dyad_order
+    ]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ax.boxplot(
+        values,
+        tick_labels=dyad_order,
+        showfliers=True,
+    )
+
+    ax.axhline(
+        ABSOLUTE_AMPLITUDE_THRESHOLD,
+        linestyle="--",
+        label=(
+            "Seuil absolu exploratoire "
+            f"({ABSOLUTE_AMPLITUDE_THRESHOLD})"
+        ),
+    )
+
+    ax.set_yscale("log")
+    ax.set_title(
+        "Distribution des amplitudes absolues maximales par dyade"
+    )
+    ax.set_xlabel("Dyade")
+    ax.set_ylabel("Amplitude absolue maximale (échelle log)")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300)
+    plt.close(fig)
+
+
+# ------------------------------------------------------------------
+# Programme principal
+# ------------------------------------------------------------------
+
+def main() -> None:
+    """Lance le diagnostic et sauvegarde les résultats."""
+
+    file_results = analyse_dataset(
+        dataset_root=DATASET_ROOT,
+        threshold=ABSOLUTE_AMPLITUDE_THRESHOLD,
+    )
+
+    # Ajout du critère relatif, en complément du seuil absolu.
+    file_results = flag_relative_outliers(
+        file_results,
+        k=RELATIVE_OUTLIER_THRESHOLD,
+    )
+
+    dyad_summary = create_dyad_summary(file_results)
+
+    file_results.to_csv(
+        RESULTS_DIR / "diagnostic_by_file.csv",
+        index=False,
+    )
+
+    dyad_summary.to_csv(
+        RESULTS_DIR / "diagnostic_by_dyad.csv",
+        index=False,
+    )
+
+    save_amplitude_plot(
+        file_results=file_results,
+        output_path=RESULTS_DIR / "amplitudes_by_dyad.png",
+    )
+
+    # Un fichier est suspect s'il dépasse le seuil ABSOLU
+    # OU s'il est anormal par rapport à la distribution RELATIVE
+    # du dataset (ce second critère rattrape les clusters modérés
+    # qui restent sous le seuil absolu).
+    suspicious_files = file_results[
+        (file_results["n_above_threshold"] > 0)
+        | (file_results["is_outlier_relative"])
+    ]
 
     print("\n" + "=" * 70)
-    print("RÉSUMÉ GLOBAL")
+    print("RÉSUMÉ PAR DYADE")
     print("=" * 70)
-    print(summary_df)
-    print("\nNombre total de fichiers .npy :", summary_df["n_npy_files"].sum())
+    print(dyad_summary.to_string(index=False))
 
-    return summary_df
+    print("\n" + "=" * 70)
+    print("FICHIERS SUSPECTS (seuil absolu OU anomalie relative)")
+    print("=" * 70)
+
+    if suspicious_files.empty:
+        print("Aucun fichier suspect détecté.")
+    else:
+        columns = [
+            "dyad_id",
+            "filename",
+            "minimum",
+            "maximum",
+            "max_absolute",
+            "n_above_threshold",
+            "relative_amplitude_score",
+            "is_outlier_relative",
+        ]
+
+        print(
+            suspicious_files[columns]
+            .sort_values("relative_amplitude_score", ascending=False)
+            .to_string(
+                index=False,
+                float_format=lambda value: f"{value:.4f}"
+                if abs(value) < 1000
+                else f"{value:.4e}",
+            )
+        )
+
+    print(f"\nRésultats sauvegardés dans : {RESULTS_DIR}")
 
 
 if __name__ == "__main__":
-    inspect_dataset(DATASET_ROOT)
+    main()

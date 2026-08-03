@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 explications.md
+reunions
 README.md
 ibs.db
 data/

@@ -102,10 +102,10 @@ class Small_CNN_EEG(nn.Module):
 
             # Réduit toute la dimension temporelle à une seule valeur
             # par carte de caractéristiques.
-            #
+
             # Avant :
             #     [batch, 64, longueur_temporelle]
-            #
+
             # Après :
             #     [batch, 64, 1]
             nn.AdaptiveAvgPool1d(1),
