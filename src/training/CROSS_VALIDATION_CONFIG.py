@@ -44,6 +44,7 @@ from src.dataset.dataloader_participant import create_participant_dataloaders
 from src.models.participant_linear_model import SimpleParticipantClassifier
 from src.models.petit_eeg_cnn import Small_CNN_EEG
 from src.models.eegNET_model import EEGNet
+from src.models.participant_non_linear_MLP import NonLinearParticipantMLP
 
 
 # ==================================================================
@@ -56,7 +57,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # Chaque dyade sera utilisée exactement une fois comme validation.
 DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10", 'J15']
 
-# J15 reste en dehors de toute la cross-validation (test final unique).
 TEST_DYADS = []
 
 BATCH_SIZE = 5
@@ -76,12 +76,12 @@ RANDOM_SEED = 42
 # Nom du modèle à entraîner pour cette expérience.
 # Valeurs possibles : "linear", "small_cnn", "eegnet"
 # (voir create_model ci-dessous).
-MODEL_NAME = "eegnet"
+MODEL_NAME = "non_linear"
 
 # Le nom du modèle est inclus dans EXPERIMENT_NAME pour ne pas écraser
 # les résultats d'une architecture avec ceux d'une autre.
-EXPERIMENT_NAME = f"protocol_A_{MODEL_NAME}_standardized"
-RESULTS_DIR = PROJECT_ROOT / "results_j8_biais" / EXPERIMENT_NAME
+EXPERIMENT_NAME = f"experience_A_{MODEL_NAME}_standardized"
+RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -107,6 +107,14 @@ def create_model(model_name: str) -> nn.Module:
 
     if model_name == "small_cnn":
         return Small_CNN_EEG()
+
+    if model_name == 'non_linear':
+        return NonLinearParticipantMLP(
+            number_of_channels=32,
+            number_of_timepoints=5120,
+            hidden_layer_size=128,
+            number_of_classes=2,
+        )
 
     if model_name == "eegnet":
         return EEGNet(
@@ -283,46 +291,217 @@ def save_fold_results(
     validation_dyad: str,
     history: dict[str, list[float]],
 ) -> None:
-    """Sauvegarde l'historique (CSV) et les courbes (PNG) d'un fold."""
+
+    # --------------------------------------------------------------
+    # Création du dossier du fold
+    # --------------------------------------------------------------
 
     fold_dir = RESULTS_DIR / f"fold_{validation_dyad}"
-    fold_dir.mkdir(parents=True, exist_ok=True)
+    fold_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
+    # Nombre réel d'epochs enregistrées.
+    # Il peut être inférieur à NUMBER_OF_EPOCHS à cause de l'early stopping.
     number_of_recorded_epochs = len(history["train_loss"])
-    epochs = range(1, number_of_recorded_epochs + 1)
+
+    epochs = range(
+        1,
+        number_of_recorded_epochs + 1,
+    )
+
+    # --------------------------------------------------------------
+    # Sauvegarde de l'historique au format CSV
+    # --------------------------------------------------------------
 
     history_table = pd.DataFrame(history)
-    history_table.insert(loc=0, column="epoch", value=epochs)
-    history_table.to_csv(fold_dir / "history.csv", index=False)
 
-    # --- Loss ---
-    plt.figure(figsize=(9, 6))
-    plt.plot(epochs, history["train_loss"], label="Train Loss")
-    plt.plot(epochs, history["validation_loss"], label="Validation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title(f"Loss — dyade de validation : {validation_dyad}")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(fold_dir / "loss_curve.png", dpi=150)
-    plt.close()
-
-    # --- Accuracy ---
-    plt.figure(figsize=(9, 6))
-    plt.plot(epochs, history["train_accuracy"], label="Train Accuracy")
-    plt.plot(
-        epochs, history["validation_accuracy"], label="Validation Accuracy"
+    history_table.insert(
+        loc=0,
+        column="epoch",
+        value=epochs,
     )
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.title(f"Accuracy — dyade de validation : {validation_dyad}")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(fold_dir / "accuracy_curve.png", dpi=150)
-    plt.close()
 
+    history_table.to_csv(
+        fold_dir / "history.csv",
+        index=False,
+    )
+
+    # ==============================================================
+    # 1. FIGURE LOSS SEULE
+    # ==============================================================
+
+    figure, axis = plt.subplots(
+        figsize=(9, 6),
+    )
+
+    axis.plot(
+        epochs,
+        history["train_loss"],
+        linestyle="--",
+        linewidth=2,
+        label="Train Loss",
+    )
+
+    axis.plot(
+        epochs,
+        history["validation_loss"],
+        linestyle="-",
+        linewidth=2,
+        label="Validation Loss",
+    )
+
+    axis.set_xlabel("Epoch")
+    axis.set_ylabel("Loss")
+    axis.set_title(
+        f"Loss — dyade de validation : {validation_dyad}"
+    )
+
+    axis.grid(
+        True,
+        alpha=0.3,
+    )
+
+    axis.legend()
+
+    figure.tight_layout()
+
+    figure.savefig(
+        fold_dir / "loss_curve.png",
+        dpi=150,
+    )
+
+    plt.close(figure)
+
+    # ==============================================================
+    # 2. FIGURE ACCURACY SEULE
+    # ==============================================================
+
+    figure, axis = plt.subplots(
+        figsize=(9, 6),
+    )
+
+    axis.plot(
+        epochs,
+        history["train_accuracy"],
+        linestyle="--",
+        linewidth=2,
+        label="Train Accuracy",
+    )
+
+    axis.plot(
+        epochs,
+        history["validation_accuracy"],
+        linestyle="-",
+        linewidth=2,
+        label="Validation Accuracy",
+    )
+
+    axis.set_xlabel("Epoch")
+    axis.set_ylabel("Accuracy")
+    axis.set_ylim(0, 1)
+
+    axis.set_title(
+        f"Accuracy — dyade de validation : {validation_dyad}"
+    )
+
+    axis.grid(
+        True,
+        alpha=0.3,
+    )
+
+    axis.legend()
+
+    figure.tight_layout()
+
+    figure.savefig(
+        fold_dir / "accuracy_curve.png",
+        dpi=150,
+    )
+
+    plt.close(figure)
+
+    # ==============================================================
+    # 3. FIGURE RÉCAPITULATIVE
+    # ==============================================================
+
+    figure, axes = plt.subplots(
+        nrows=1,
+        ncols=2,
+        figsize=(14, 5),
+    )
+    axes[0].plot(
+        epochs,
+        history["train_loss"],
+        linestyle="--",
+        linewidth=2,
+        label="Train",
+    )
+
+    axes[0].plot(
+        epochs,
+        history["validation_loss"],
+        linestyle="-",
+        linewidth=2,
+        label="Validation",
+    )
+
+    axes[0].set_xlabel("Epoch")
+    axes[0].set_ylabel("Loss")
+    axes[0].set_title("Loss")
+
+    axes[0].grid(
+        True,
+        alpha=0.3,
+    )
+
+    axes[0].legend()
+
+    axes[1].plot(
+        epochs,
+        history["train_accuracy"],
+        linestyle="--",
+        linewidth=2,
+        label="Train",
+    )
+
+    axes[1].plot(
+        epochs,
+        history["validation_accuracy"],
+        linestyle="-",
+        linewidth=2,
+        label="Validation",
+    )
+
+    axes[1].set_xlabel("Epoch")
+    axes[1].set_ylabel("Accuracy")
+    axes[1].set_ylim(0, 1)
+    axes[1].set_title("Accuracy")
+
+    axes[1].grid(
+        True,
+        alpha=0.3,
+    )
+
+    axes[1].legend()
+
+    # Titre général de la figure.
+    figure.suptitle(
+        f"Apprentissage — dyade de validation : {validation_dyad}"
+    )
+
+    # rect réserve un peu d'espace en haut pour le titre général.
+    figure.tight_layout(
+        rect=[0, 0, 1, 0.95],
+    )
+
+    figure.savefig(
+        fold_dir / "training_curves.png",
+        dpi=150,
+    )
+
+    plt.close(figure)
 
 # ==================================================================
 # 8. ENTRAÎNEMENT D'UN SEUL FOLD

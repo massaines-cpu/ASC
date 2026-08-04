@@ -32,12 +32,11 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATASET_ROOT = PROJECT_ROOT / "data" / "data_toy"
-RESULTS_DIR = PROJECT_ROOT / "results" / "dataset_diagnostic_2"
+RESULTS_DIR = PROJECT_ROOT / "results" / "pretraitement_dataset_diagnostic_2"
 
 # Seuil exploratoire utilisé pour repérer les très grandes amplitudes.
 # Il ne constitue pas encore un seuil universel de rejet EEG.
 ABSOLUTE_AMPLITUDE_THRESHOLD = 0.01
-
 # Nombre de MAD (median absolute deviation) au-delà duquel un fichier
 # est considéré comme anormal PAR RAPPORT AU RESTE DU DATASET, même
 # s'il ne dépasse pas le seuil absolu. 3 correspond approximativement
@@ -125,11 +124,6 @@ def analyse_dataset(
 
     npy_files = find_epoch_files(dataset_root)
 
-    if not npy_files:
-        raise FileNotFoundError(
-            f"Aucun fichier .npy trouvé dans {dataset_root}"
-        )
-
     rows = [
         analyse_eeg_file(
             npy_path=npy_path,
@@ -156,7 +150,7 @@ def flag_relative_outliers(
     Méthode :
     - on travaille en échelle log10, car les amplitudes EEG varient sur
       plusieurs ordres de grandeur (comparer les valeurs brutes n'aurait
-      pas de sens) ;
+      pas de sens)
     - on utilise la médiane et la MAD (median absolute deviation) plutôt
       que la moyenne et l'écart-type classiques, car la médiane et la
       MAD restent fiables même quand quelques fichiers sont déjà des

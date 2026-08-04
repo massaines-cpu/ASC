@@ -1,0 +1,20 @@
+Accuracy : 0.9091
+Confiance moyenne : 0.8838
+Confiance moyenne (bonnes prédictions) : 0.8971
+Confiance moyenne (erreurs) : 0.7510
+Prédictions classe 0 (YO) : 48
+Prédictions classe 1 (YF) : 40
+
+Matrice de confusion :
+[[42  2]
+ [ 6 38]]
+
+Classification report :
+              precision    recall  f1-score   support
+
+           0      0.875     0.955     0.913        44
+           1      0.950     0.864     0.905        44
+
+    accuracy                          0.909        88
+   macro avg      0.912     0.909     0.909        88
+weighted avg      0.912     0.909     0.909        88
