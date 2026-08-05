@@ -40,38 +40,6 @@ classification_table = prepare_classification_table(
 )
 
 
-# Création des DataLoaders.
-
-# Les données sont séparées par dyade afin d'éviter qu'une
-# même dyade apparaisse à la fois dans l'entraînement et
-# dans le test.
-
-train_loader, validation_loader, test_loader = (
-    create_participant_dataloaders(
-        classification_table=classification_table,
-        dataset_root=PROJECT_ROOT / "data" / "data_toy",
-        train_dyads=["J2", "J4", "J5", "J7", "J8", "J1"],
-        validation_dyads=["J10"],
-        test_dyads=["J15"],
-        batch_size=5,
-    )
-)
-
-
-# Modèle de classification le plus simple possible.
-
-# Architecture :
-#
-# EEG (32 × 5120)
-#        ↓
-# Flatten
-#        ↓
-# Couche linéaire
-#        ↓
-# Deux scores de classes :
-#
-# classe 0 -> YO
-# classe 1 -> YF
 
 class SimpleParticipantClassifier(nn.Module):
 

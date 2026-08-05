@@ -1,0 +1,21 @@
+Dyade de validation : J10
+Niveau de freeze : 1
+Meilleure époque : 4
+Meilleure validation loss : 0.213227
+Accuracy correspondante : 0.931818
+Paramètres entraînables : 6210
+Paramètres gelés : 528
+
+Matrice de confusion :
+[[41  3]
+ [ 3 41]]
+
+Classification report :
+              precision    recall  f1-score   support
+
+          YO     0.9318    0.9318    0.9318        44
+          YF     0.9318    0.9318    0.9318        44
+
+    accuracy                         0.9318        88
+   macro avg     0.9318    0.9318    0.9318        88
+weighted avg     0.9318    0.9318    0.9318        88

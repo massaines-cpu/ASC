@@ -23,11 +23,8 @@ metadata = pd.read_csv(
 
 
 # Création de la table utilisée pour la classification.
-#
+
 # Seules les conditions expérimentales YO et YF sont conservées :
-#
-# YO : Yeux Ouverts -> classe 0
-# YF : Yeux Fermés -> classe 1
 classification_table = prepare_classification_table(
     metadata,
     target_column="eyes_code",
@@ -149,28 +146,6 @@ class NonLinearParticipantMLP(nn.Module):
         )
 
     def forward(self, eeg):
-        """
-        Réalise le passage avant du MLP.
-
-        Paramètres
-        ----------
-        eeg : torch.Tensor
-            Batch de signaux EEG de forme :
-
-            (batch_size, 32, 5120)
-
-        Retour
-        ------
-        logits : torch.Tensor
-            Scores de classification de forme :
-
-            (batch_size, 2)
-
-        Les logits ne sont pas transformés en probabilités dans
-        le modèle, car CrossEntropyLoss applique directement
-        l'opération nécessaire pendant l'entraînement.
-        """
-
 
         # Passage de :
         #

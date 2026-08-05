@@ -80,7 +80,7 @@ MODEL_NAME = "non_linear"
 
 # Le nom du modèle est inclus dans EXPERIMENT_NAME pour ne pas écraser
 # les résultats d'une architecture avec ceux d'une autre.
-EXPERIMENT_NAME = f"experience_A_{MODEL_NAME}_standardized"
+EXPERIMENT_NAME = f"experience_D_{MODEL_NAME}_standardized"
 RESULTS_DIR = PROJECT_ROOT / "results" / EXPERIMENT_NAME
 MODELS_DIR = PROJECT_ROOT / "models" / EXPERIMENT_NAME
 
@@ -528,7 +528,7 @@ def train_one_fold(
 
     train_loader, validation_loader, _ = create_participant_dataloaders(
         classification_table=classification_table,
-        dataset_root=PROJECT_ROOT / "data" / "data_toy_repaired",
+        dataset_root=PROJECT_ROOT / "data" / "data_experiment_D_cross_channel_median",
         train_dyads=train_dyads,
         validation_dyads=[validation_dyad],
         test_dyads=TEST_DYADS,
