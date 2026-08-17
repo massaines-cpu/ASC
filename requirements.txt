@@ -1,6 +1,19 @@
+# manip
 numpy==2.5.1
-pandas==3.0.3
+pandas==2.3.3
+scipy==1.18.0
+
+#figure
 matplotlib==3.11.0
 scikit-learn==1.9.0
+
+# DL
 torch==2.13.0
 braindecode==1.7.0
+
+# checkpoint utilisé pour le transfert d'apprentissage
+huggingface-hub==1.22.0
+
+# suivi
+mlflow==3.15.1
+

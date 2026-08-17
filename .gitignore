@@ -8,11 +8,15 @@ reunions
 README.md
 ibs.db
 data/
-
+livrables/
 .venv/
 venv/
 env/
 ENV/
+mlartifacts/
+models/
+mlflow.db
+mlruns/
 
 .ipynb_checkpoints/
 

@@ -1,58 +1,32 @@
-import json
 from pathlib import Path
+import numpy as np
 
-import matplotlib.pyplot as plt
-import pandas as pd
-from huggingface_hub import hf_hub_download
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATASET_ROOT = PROJECT_ROOT / "data" / "data_toy"
 
-
-history_path = hf_hub_download(
-    repo_id="guido151/EEGNetv4",
-    filename="EEGNetv4_Lee2019_ERP/history.json",
+eeg_files = sorted(
+    (DATASET_ROOT / "J1" / "epochs").glob("*.npy")
 )
 
+eeg_path = eeg_files[0]
 
-with Path(history_path).open(
-    mode="r",
-    encoding="utf-8",
-) as history_file:
-    history_data = json.load(history_file)
+print("Fichier choisi :", eeg_path.name)
 
+data = np.load(eeg_path, mmap_mode="r")
 
-history_table = pd.DataFrame(history_data)
+print("\nShape complète :", data.shape)
+print("Type :", data.dtype)
 
-print("Colonnes disponibles :")
-print(history_table.columns.tolist())
+print("\nParticipant 1 :", data[0].shape)
+print("Participant 2 :", data[1].shape)
 
-print("\nPremières lignes :")
-print(history_table.head())
+print("\nCanal 0 du participant 1 :", data[0, 0].shape)
 
-plt.figure(figsize=(10, 5))
+print("\n10 premières valeurs du canal 0 de P1 :")
+print(data[0, 0, :10])
 
-plt.plot(
-    history_table.index + 1,
-    history_table["train_loss"],
-    label="Train loss",
-)
-
-plt.plot(
-    history_table.index + 1,
-    history_table["valid_loss"],
-    label="Validation loss",
-)
-
-best_epoch_index = history_table["valid_loss"].idxmin()
-
-plt.axvline(
-    best_epoch_index + 1,
-    color="black",
-    linestyle="--",
-    label="Meilleur checkpoint",
-)
-
-plt.xlabel("Époque")
-plt.ylabel("Loss")
-plt.title("Entraînement EEGNetv4 Lee2019 ERP")
-plt.legend()
-plt.tight_layout()
-plt.show()
+print("\nQuelques statistiques :")
+print("Minimum :", data.min())
+print("Maximum :", data.max())
+print("Moyenne :", data.mean())
+print("Std :", data.std())

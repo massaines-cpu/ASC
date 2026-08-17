@@ -1,130 +1,105 @@
+"""Modèle linéaire de référence pour la classification EEG YO/YF.
+
+Ce module contient uniquement l'architecture du modèle. La lecture des
+métadonnées, la création des DataLoaders et la validation LODO restent
+dans les modules ``dataset`` et ``training`` afin de ne pas exécuter de
+logique d'entraînement lors d'un simple import.
+"""
+
 import torch
 from torch import nn
-from pathlib import Path
-import pandas as pd
-
-from src.dataset.labels import prepare_classification_table
-from src.dataset.dataloader_participant import create_participant_dataloaders
-
-
-# Récupère automatiquement le chemin vers la racine du projet.
-
-# Cela permet d'accéder aux fichiers de données sans dépendre
-# du dossier depuis lequel le script est lancé.
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-
-# Lecture du fichier contenant toutes les métadonnées EEG.
-
-metadata = pd.read_csv(
-    PROJECT_ROOT / "data" / "all_metadata.csv"
-)
-
-
-# Création de la table de classification.
-
-# On conserve uniquement les deux conditions :
-
-# YO -> label 0
-# YF -> label 1
-
-classification_table = prepare_classification_table(
-    metadata,
-    target_column="eyes_code",
-    allowed_classes=["YO", "YF"],
-    label_map={
-        "YO": 0,
-        "YF": 1,
-    },
-)
-
 
 
 class SimpleParticipantClassifier(nn.Module):
+    """Classifieur linéaire recevant un EEG par participant.
+
+    Entrée
+    ------
+    Tenseur de forme ``[batch_size, 32, 5120]``.
+
+    Sortie
+    ------
+    Deux logits de forme ``[batch_size, 2]`` :
+
+    - indice 0 : score de la classe YO ;
+    - indice 1 : score de la classe YF.
+
+    Le modèle ne contient volontairement aucune activation de sortie.
+    Les logits sont transmis à ``CrossEntropyLoss`` pendant
+    l'entraînement. Les probabilités sont calculées avec ``softmax``
+    uniquement pendant l'évaluation.
+    """
 
     def __init__(
         self,
-        number_of_channels=32,
-        number_of_timepoints=5120,
-    ):
+        number_of_channels: int = 32,
+        number_of_timepoints: int = 5120,
+        number_of_classes: int = 2,
+    ) -> None:
         super().__init__()
 
-        # Transforme chaque EEG :
+        self.number_of_channels = number_of_channels
+        self.number_of_timepoints = number_of_timepoints
+        self.number_of_classes = number_of_classes
 
-        # (32, 5120)
-
-        # en un vecteur de taille :
-
-        # 32 × 5120 = 163840
-
-        # Une couche linéaire attend une entrée sous forme de vecteur
-
+        # La mise à plat transforme chaque EEG de forme (32, 5120)
+        # en un vecteur de 163840 valeurs. Aucune valeur n'est modifiée :
+        # seule l'organisation du tenseur change.
         self.flatten = nn.Flatten()
 
-
-        # Couche de classification.
-
-        # Entrée :
-        # 163840 valeurs
-
-        # Sortie :
-        # 2 logits (un score par classe)
-
-        # Ces deux valeurs correspondent aux scores associés
-        # aux classes YO et YF.
-
+        # Cette unique transformation apprend directement deux scores
+        # depuis le signal complet. Elle constitue la baseline linéaire
+        # utilisée pour mesurer l'apport des architectures non linéaires.
         self.classifier = nn.Linear(
-            number_of_channels * number_of_timepoints,
-            2,
+            in_features=number_of_channels * number_of_timepoints,
+            out_features=number_of_classes,
         )
 
-    def forward(self, eeg):
-        """
-        Réalise le passage avant (forward pass).
+    def forward(self, eeg: torch.Tensor) -> torch.Tensor:
+        """Calcule les deux logits YO/YF d'un batch EEG."""
 
-        Paramètre
-        ---------
-        eeg :
-            Batch de taille :
+        if eeg.ndim != 3:
+            raise ValueError(
+                "Le MLP linéaire attend une entrée de forme "
+                "[batch, channels, time], mais a reçu "
+                f"{tuple(eeg.shape)}."
+            )
 
-            (batch_size, 32, 5120)
+        if eeg.shape[1] != self.number_of_channels:
+            raise ValueError(
+                f"Le modèle attend {self.number_of_channels} canaux, "
+                f"mais en a reçu {eeg.shape[1]}."
+            )
 
-        Retour
-        ------
-        predictions :
-            Scores de taille :
+        if eeg.shape[2] != self.number_of_timepoints:
+            raise ValueError(
+                f"Le modèle attend {self.number_of_timepoints} points, "
+                f"mais en a reçu {eeg.shape[2]}."
+            )
 
-            (batch_size, 2)
-        """
-
-        # Mise à plat de chaque EEG
-        eeg = self.flatten(eeg)
-
-        # Calcul des scores de classification
-        predictions = self.classifier(eeg)
-
-        return predictions
+        flattened_eeg = self.flatten(eeg)
+        logits = self.classifier(flattened_eeg)
+        return logits
 
 
-# Test du modèle
+if __name__ == "__main__":
+    # Ce test autonome ne dépend d'aucun DataLoader. Il est exécuté
+    # uniquement lorsque ce fichier est lancé directement, jamais lors
+    # de son import par CROSS_VALIDATION_CONFIG.py.
+    fake_eeg = torch.randn(5, 32, 5120)
+    model = SimpleParticipantClassifier()
 
-# Cette partie permet simplement de vérifier que :
+    logits = model(fake_eeg)
+    probabilities = torch.softmax(logits, dim=1)
 
-# - le DataLoader fonctionne
-# - le modèle accepte les données
-# - les dimensions des sorties sont correctes
+    print("Forme EEG :", fake_eeg.shape)
+    print("Forme logits :", logits.shape)
+    print("Forme probabilités :", probabilities.shape)
+    print("Somme des probabilités :", probabilities.sum(dim=1))
 
-# Récupération du premier batch d'entraînement
-eeg, labels = next(iter(train_loader))
-
-# Création du modèle
-model = SimpleParticipantClassifier()
-
-# Passage du batch dans le réseau
-predictions = model(eeg)
-
-# Vérification des dimensions obtenues
-print("EEG :", eeg.shape)
-print("Prédictions :", predictions.shape)
-print("Labels :", labels.shape)
+    number_of_parameters = sum(
+        parameter.numel()
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    )
+    print("Paramètres entraînables :", number_of_parameters)

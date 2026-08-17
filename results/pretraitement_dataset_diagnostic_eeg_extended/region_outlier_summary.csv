@@ -1,0 +1,6 @@
+region,total_outlier_values,n_electrodes,mean_max_absolute
+frontal,3187,13,0.00010931395225528853
+central,0,3,4.265888615915224e-05
+occipital,0,5,5.928529408211788e-05
+parietal,0,9,4.170524264836601e-05
+temporal,0,2,5.284626494621935e-05
