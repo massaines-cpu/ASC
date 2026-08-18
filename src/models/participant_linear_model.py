@@ -1,9 +1,10 @@
-"""Modèle linéaire de référence pour la classification EEG YO/YF.
+"""Modèle linéaire binaire pour la classification EEG YO/YF.
 
-Ce module contient uniquement l'architecture du modèle. La lecture des
-métadonnées, la création des DataLoaders et la validation LODO restent
-dans les modules ``dataset`` et ``training`` afin de ne pas exécuter de
-logique d'entraînement lors d'un simple import.
+Convention :
+- YO -> label 0
+- YF -> label 1
+
+Le modèle produit un seul logit correspondant à la classe YF.
 """
 
 import torch
@@ -11,52 +12,56 @@ from torch import nn
 
 
 class SimpleParticipantClassifier(nn.Module):
-    """Classifieur linéaire recevant un EEG par participant.
+    """Classifieur linéaire binaire recevant un EEG par participant.
 
     Entrée
     ------
-    Tenseur de forme ``[batch_size, 32, 5120]``.
+    Tenseur de forme [batch_size, 32, 5120].
 
     Sortie
     ------
-    Deux logits de forme ``[batch_size, 2]`` :
+    Un logit par participant, de forme [batch_size].
 
-    - indice 0 : score de la classe YO ;
-    - indice 1 : score de la classe YF.
+    Le logit est transformé en probabilité avec une fonction Sigmoid :
 
-    Le modèle ne contient volontairement aucune activation de sortie.
-    Les logits sont transmis à ``CrossEntropyLoss`` pendant
-    l'entraînement. Les probabilités sont calculées avec ``softmax``
-    uniquement pendant l'évaluation.
+        P(YF) = sigmoid(logit)
+        P(YO) = 1 - P(YF)
     """
 
     def __init__(
         self,
         number_of_channels: int = 32,
         number_of_timepoints: int = 5120,
-        number_of_classes: int = 2,
     ) -> None:
         super().__init__()
 
         self.number_of_channels = number_of_channels
         self.number_of_timepoints = number_of_timepoints
-        self.number_of_classes = number_of_classes
 
-        # La mise à plat transforme chaque EEG de forme (32, 5120)
-        # en un vecteur de 163840 valeurs. Aucune valeur n'est modifiée :
-        # seule l'organisation du tenseur change.
+        # Transforme chaque EEG [32, 5120] en un vecteur de
+        # 32 × 5120 = 163840 valeurs.
         self.flatten = nn.Flatten()
 
-        # Cette unique transformation apprend directement deux scores
-        # depuis le signal complet. Elle constitue la baseline linéaire
-        # utilisée pour mesurer l'apport des architectures non linéaires.
+        # Une seule sortie est nécessaire pour une classification
+        # binaire formulée avec Sigmoid :
+        #
+        # logit négatif  -> probabilité YF inférieure à 0.5 -> YO
+        # logit positif  -> probabilité YF supérieure à 0.5 -> YF
         self.classifier = nn.Linear(
-            in_features=number_of_channels * number_of_timepoints,
-            out_features=number_of_classes,
+            in_features=(
+                number_of_channels * number_of_timepoints
+            ),
+            out_features=1,
         )
 
+        # La Sigmoid convertit le logit en une probabilité
+        # comprise entre 0 et 1.
+        #
+        # Elle sera utilisée uniquement pour l'évaluation.
+        self.output_activation = nn.Sigmoid()
+
     def forward(self, eeg: torch.Tensor) -> torch.Tensor:
-        """Calcule les deux logits YO/YF d'un batch EEG."""
+        """Calcule le logit associé à la classe YF."""
 
         if eeg.ndim != 3:
             raise ValueError(
@@ -78,28 +83,48 @@ class SimpleParticipantClassifier(nn.Module):
             )
 
         flattened_eeg = self.flatten(eeg)
+
+        # La couche retourne initialement [batch_size, 1].
         logits = self.classifier(flattened_eeg)
+
+        # Suppression de la dernière dimension :
+        # [batch_size, 1] devient [batch_size].
+        logits = logits.squeeze(dim=1)
+
         return logits
+
+    def predict_yf_probability(
+        self,
+        eeg: torch.Tensor,
+    ) -> torch.Tensor:
+        """Calcule la probabilité d'appartenir à la classe YF."""
+
+        logits = self.forward(eeg)
+        probability_yf = self.output_activation(logits)
+
+        return probability_yf
 
 
 if __name__ == "__main__":
-    # Ce test autonome ne dépend d'aucun DataLoader. Il est exécuté
-    # uniquement lorsque ce fichier est lancé directement, jamais lors
-    # de son import par CROSS_VALIDATION_CONFIG.py.
     fake_eeg = torch.randn(5, 32, 5120)
     model = SimpleParticipantClassifier()
 
     logits = model(fake_eeg)
-    probabilities = torch.softmax(logits, dim=1)
+    probability_yf = model.predict_yf_probability(fake_eeg)
+    probability_yo = 1.0 - probability_yf
+
+    predictions = (probability_yf >= 0.5).long()
 
     print("Forme EEG :", fake_eeg.shape)
     print("Forme logits :", logits.shape)
-    print("Forme probabilités :", probabilities.shape)
-    print("Somme des probabilités :", probabilities.sum(dim=1))
+    print("Probabilité YO :", probability_yo)
+    print("Probabilité YF :", probability_yf)
+    print("Classes prédites :", predictions)
 
     number_of_parameters = sum(
         parameter.numel()
         for parameter in model.parameters()
         if parameter.requires_grad
     )
+
     print("Paramètres entraînables :", number_of_parameters)

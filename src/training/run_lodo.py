@@ -43,7 +43,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10", "J15"]
 TEST_DYADS: list[str] = []
 
-MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
+# Le port 5000 est occupé par ControlCenter/AirPlay sur certains Mac.
+# Le serveur MLflow local du projet ASC utilise donc le port 5001.
+MLFLOW_TRACKING_URI = "http://127.0.0.1:5001"
 MLFLOW_EXPERIMENT_NAME = "ASC_YO_YF_EXPERIMENTS"
 
 
@@ -106,7 +108,10 @@ def train_one_fold(
         hidden_layer_size=config.hidden_layer_size,
         dropout_rate=config.dropout_rate,
     )
-    criterion = nn.CrossEntropyLoss()
+    # Les quatre architectures produisent un seul logit associé à YF.
+    # BCEWithLogitsLoss combine la Sigmoid et la binary cross-entropy
+    # de manière numériquement stable pendant l'apprentissage.
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config.learning_rate,
@@ -156,6 +161,7 @@ def train_one_fold(
         "early_stopping_min_delta": config.early_stopping_min_delta,
         "random_seed": config.random_seed,
         "trainable_parameters": number_of_parameters,
+        "loss_function": criterion.__class__.__name__,
     }
 
     with tracker.fold_run(run_name, run_parameters):

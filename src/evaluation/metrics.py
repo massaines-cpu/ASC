@@ -12,14 +12,43 @@ from torch import nn
 CLASS_NAMES = ["YO", "YF"]
 
 
+def probabilities_and_predictions_from_logits(
+    logits: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Transforme un logit YF en probabilités YO/YF et en classe."""
+
+    if logits.ndim == 2 and logits.shape[1] == 1:
+        logits = logits.squeeze(dim=1)
+
+    if logits.ndim != 1:
+        raise ValueError(
+            "L'évaluation attend un seul logit YF par exemple, "
+            f"mais a reçu une sortie de forme {tuple(logits.shape)}."
+        )
+
+    probability_yf = torch.sigmoid(logits)
+    probability_yo = 1.0 - probability_yf
+
+    # Les deux colonnes sont conservées afin que les CSV, les rapports
+    # et les calculs de confiance gardent une interface YO/YF homogène.
+    probabilities = torch.stack(
+        (probability_yo, probability_yf),
+        dim=1,
+    )
+    predictions = (probability_yf >= 0.5).long()
+
+    return probabilities, predictions
+
+
 def collect_predictions(
     model: nn.Module,
     loader,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Retourne les labels, classes prédites et probabilités.
 
-    Le réseau produit deux logits bruts. ``softmax`` est appliqué ici,
-    uniquement pendant l'évaluation, afin d'obtenir les probabilités YO/YF.
+    Tous les modèles produisent un logit YF. Sigmoid transforme ce logit
+    en probabilité. La valeur retournée possède toujours deux colonnes :
+    ``P(YO) = 1 - P(YF)`` puis ``P(YF)``.
     """
 
     model.eval()
@@ -31,14 +60,9 @@ def collect_predictions(
         for eeg, labels in loader:
             logits = model(eeg)
 
-            if logits.ndim != 2 or logits.shape[1] != 2:
-                raise ValueError(
-                    "L'évaluation attend deux logits par exemple, "
-                    f"mais a reçu une sortie de forme {tuple(logits.shape)}."
-                )
-
-            probabilities = torch.softmax(logits, dim=1)
-            predictions = probabilities.argmax(dim=1)
+            probabilities, predictions = (
+                probabilities_and_predictions_from_logits(logits)
+            )
 
             all_labels.append(labels.detach().cpu().numpy())
             all_predictions.append(predictions.detach().cpu().numpy())

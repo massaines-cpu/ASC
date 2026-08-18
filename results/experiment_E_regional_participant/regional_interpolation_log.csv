@@ -1,2 +1,2 @@
 dyad_id,filename,participant,participant_index,electrode,channel_index,region,threshold,outlier_values_before,outlier_values_after,values_replaced,neighbors,source_path,output_path
-J7,J7_E018_C5_YF_S1_5A15.npy,P1,0,FC5,5,frontal,0.01,3187,0,5120,F7;F3;FC1;AF3,/Users/nini/ASC/data/data_toy/J7/epochs/J7_E018_C5_YF_S1_5A15.npy,/Users/nini/ASC/data/data_experiment_E_regional_participant/J7/epochs/J7_E018_C5_YF_S1_5A15.npy
+J7,J7_E018_C5_YF_S1_5A15.npy,P1,0,FC5,5,frontal,0.01,3187,0,5120,F7;F3;FC1;AF3,/Users/nini/ASC/data/data_toy/J7/epochs/J7_E018_C5_YF_S1_5A15.npy,/Users/nini/ASC/data/data_final/J7/epochs/J7_E018_C5_YF_S1_5A15.npy

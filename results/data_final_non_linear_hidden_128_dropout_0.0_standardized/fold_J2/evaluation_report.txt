@@ -1,0 +1,21 @@
+Dyade de validation : J2
+Accuracy : 0.6364
+Confiance moyenne : 0.8998
+Confiance moyenne des bonnes prédictions : 0.8820
+Confiance moyenne des erreurs : 0.9311
+Prédictions YO : 36
+Prédictions YF : 52
+
+Matrice de confusion :
+[[24 20]
+ [12 32]]
+
+Classification report :
+              precision    recall  f1-score   support
+
+          YO     0.6667    0.5455    0.6000        44
+          YF     0.6154    0.7273    0.6667        44
+
+    accuracy                         0.6364        88
+   macro avg     0.6410    0.6364    0.6333        88
+weighted avg     0.6410    0.6364    0.6333        88

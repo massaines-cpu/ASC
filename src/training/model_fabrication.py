@@ -1,3 +1,5 @@
+"""Création des architectures entraînées from scratch dans ASC."""
+
 from torch import nn
 
 from src.models.participant_linear_model import (
@@ -15,7 +17,11 @@ def create_model(
     hidden_layer_size: int,
     dropout_rate: float,
 ) -> nn.Module:
-    """Crée un modèle neuf avec des poids aléatoires."""
+    """Crée un modèle neuf avec des poids initialisés aléatoirement.
+
+    Toutes les architectures retournent un seul logit associé à YF.
+    La fonction de loss commune est donc ``BCEWithLogitsLoss``.
+    """
 
     if model_name == "linear":
         return SimpleParticipantClassifier()
@@ -26,17 +32,17 @@ def create_model(
             number_of_timepoints=5120,
             hidden_layer_size=hidden_layer_size,
             dropout_rate=dropout_rate,
-            number_of_classes=2,
         )
 
     if model_name == "small_cnn":
-        return Small_CNN_EEG()
+        return Small_CNN_EEG(
+            number_of_eeg_channels=32,
+        )
 
     if model_name == "eegnet":
         return EEGNet(
             n_channels=32,
             n_samples=5120,
-            n_classes=2,
         )
 
     raise ValueError(f"Modèle inconnu : {model_name}")

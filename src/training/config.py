@@ -7,7 +7,7 @@ class ExperimentConfig:
     project_root: Path
     dataset_version: str = "data_final"
     model_name: str = "non_linear"
-    hidden_layer_size: int = 32
+    hidden_layer_size: int = 64
     dropout_rate: float = 0.0
     batch_size: int = 5
     number_of_epochs: int = 100
