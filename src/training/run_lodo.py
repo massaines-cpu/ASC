@@ -10,6 +10,7 @@ Un seul fold et trois epochs, sans MLflow :
 
     python -m src.training.run_lodo \
         --model-name signal_jepa_pretrained \
+        --freeze-strategy classifier_only \
         --folds J1 \
         --epochs 3 \
         --patience 3 \
@@ -197,6 +198,14 @@ def train_one_fold(
         f"Paramètres entraînables : {trainable_parameter_count:,} | "
         f"Appareil : {device}"
     )
+    print(f"Stratégie de gel : {config.freeze_strategy}")
+
+    if config.is_signal_jepa and device.type == "mps":
+        print(
+            "Compatibilité MPS : le Transformer reste en mode eval "
+            "pour désactiver son Dropout. En full_finetuning, ses "
+            "gradients et ses mises à jour restent actifs."
+        )
 
     history = {
         "train_loss": [],
@@ -253,6 +262,9 @@ def train_one_fold(
         "total_parameters": total_parameter_count,
         "trainable_parameters": trainable_parameter_count,
         "loss_function": criterion.__class__.__name__,
+        "transformer_eval_on_mps": (
+            config.is_signal_jepa and device.type == "mps"
+        ),
     }
 
     with tracker.fold_run(run_name, run_parameters):
@@ -263,15 +275,14 @@ def train_one_fold(
                 model=model,
                 loader=train_loader,
                 criterion=criterion,
-                optimizer=optimizer,
                 device=device,
+                optimizer=optimizer,
                 freeze_strategy=config.freeze_strategy,
             )
             validation_loss, validation_accuracy = run_epoch(
                 model=model,
                 loader=validation_loader,
                 criterion=criterion,
-                optimizer=None,
                 device=device,
                 freeze_strategy=config.freeze_strategy,
             )
@@ -538,7 +549,7 @@ def main() -> None:
         raise FileNotFoundError(
             f"Dataset introuvable : {config.dataset_root}. "
             "Pour SignalJEPA, exécute d'abord "
-            "python -m src.dataset.prepare_signal_jepa_dataset."
+            "python -m src.dataset.prepare_signal_jepa."
         )
 
     if config.is_signal_jepa and config.standardize:
@@ -565,6 +576,9 @@ def main() -> None:
     print("Appareil sélectionné :", device)
     print("Dataset              :", config.dataset_root)
     print("Standardisation      :", config.standardize)
+    print("Stratégie de gel    :", config.freeze_strategy)
+    print("Learning rate        :", config.learning_rate)
+    print("Batch size           :", config.batch_size)
     print("Folds demandés       :", selected_folds)
 
     all_histories = {}

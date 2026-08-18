@@ -18,11 +18,11 @@ Exemples
 --------
 Préparation sans ajouter de filtre :
 
-    python -m src.dataset.prepare_signal_jepa_dataset
+    python -m src.dataset.prepare_signal_jepa
 
 Si les données sont confirmées comme non filtrées :
 
-    python -m src.dataset.prepare_signal_jepa_dataset \
+    python -m src.dataset.prepare_signal_jepa \
         --apply-bandpass
 """
 
