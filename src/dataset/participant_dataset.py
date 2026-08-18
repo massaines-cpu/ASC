@@ -1,187 +1,114 @@
-# ============================================================
-# Dataset PyTorch au niveau du participant
-#
-# Contrairement au MultiBrainDataset :
-#
-#   MultiBrainDataset :
-#       un exemple = une dyade complète
-#       retour = eeg_a, eeg_b, label
-#
-#   ParticipantDataset :
-#       un exemple = un seul participant
-#       retour = eeg, label
-#
-# Un fichier .npy contient deux participants :
-#
-#   data.shape = (2, 32, 5120)
-#
-# Le Dataset crée donc deux exemples à partir de chaque fichier :
-#
-#   participant 0
-#   participant 1
-# ============================================================
+"""Dataset PyTorch au niveau du participant pour le projet ASC.
+
+Un fichier contient deux participants de forme ``[2, canaux, temps]``.
+Le Dataset transforme donc chaque fichier en deux exemples indépendants,
+tout en laissant le découpage train/validation s'effectuer par dyade.
+
+La standardisation est configurable. Elle reste activée pour les modèles
+historiques ASC, mais doit être désactivée pour l'expérience SignalJEPA qui
+utilise les amplitudes en microvolts attendues par le checkpoint.
+"""
 
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from src.dataset.labels import prepare_classification_table
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-metadata_path = PROJECT_ROOT / "data" / "all_metadata.csv"
-
 
 class ParticipantDataset(Dataset):
+    """Charge un participant et son label à partir d'un fichier de dyade."""
 
-    def __init__(self, classification_table, dataset_root):
-        """
-        Initialise le Dataset au niveau du participant.
+    def __init__(
+        self,
+        classification_table,
+        dataset_root,
+        standardize: bool = True,
+        expected_number_of_channels: int = 32,
+        expected_number_of_timepoints: int = 5120,
+    ) -> None:
+        """Mémorise la table, le prétraitement et les dimensions attendues.
 
         Paramètres
         ----------
         classification_table : pandas.DataFrame
-            Table contenant les fichiers EEG et leurs labels.
+            Table contenant au minimum ``dyad_id``, ``filename`` et
+            ``label``.
 
-        dataset_root : str ou Path
-            Dossier contenant les dossiers des dyades.
+        dataset_root : str ou pathlib.Path
+            Racine contenant les dossiers ``J1``, ``J2``, etc.
+
+        standardize : bool
+            Si vrai, applique le Z-score indépendamment à chaque canal du
+            participant. Si faux, conserve les amplitudes du fichier.
+
+        expected_number_of_channels, expected_number_of_timepoints : int
+            Dimensions contrôlées à chaque chargement afin de détecter une
+            confusion entre ``data_final`` et le dataset SignalJEPA.
         """
 
-        # On remet les indices de la table à 0, 1, 2, ...
         self.classification_table = (
             classification_table.reset_index(drop=True)
         )
-
-        # On convertit le chemin en objet Path
         self.dataset_root = Path(dataset_root)
+        self.standardize = standardize
+        self.expected_number_of_channels = expected_number_of_channels
+        self.expected_number_of_timepoints = expected_number_of_timepoints
 
-    def __len__(self):
-        """
-        Retourne le nombre total de participants.
-
-        Chaque ligne de classification_table correspond
-        à un fichier contenant deux participants.
-
-        Donc :
-
-            nombre de participants
-            =
-            nombre de fichiers × 2
-        """
+    def __len__(self) -> int:
+        """Retourne deux exemples par fichier, un pour chaque participant."""
 
         return len(self.classification_table) * 2
 
-    def __getitem__(self, idx):
-        """
-        Charge un seul participant.
+    def __getitem__(self, index: int):
+        """Charge un EEG ``[canaux, temps]`` et son label YO/YF."""
 
-        Retour
-        ------
-        eeg : torch.Tensor
-            EEG standardisé de forme (32, 5120).
-
-        label : torch.Tensor
-            Label numérique de la condition.
-        """
-
-        file_index = idx // 2
-        participant_index = idx % 2
-
+        file_index = index // 2
+        participant_index = index % 2
         row = self.classification_table.iloc[file_index]
 
         file_path = (
-                self.dataset_root
-                / row["dyad_id"]
-                / "epochs"
-                / row["filename"]
+            self.dataset_root
+            / row["dyad_id"]
+            / "epochs"
+            / row["filename"]
         )
 
-        # Forme attendue : (2, 32, 5120)
+        if not file_path.exists():
+            raise FileNotFoundError(f"Fichier EEG introuvable : {file_path}")
+
         data = np.load(file_path)
-
-        # Sélection d'un participant : (32, 5120)
-        eeg = data[participant_index].astype(np.float32)
-
-        # ----------------------------------------------------------
-        # Standardisation canal par canal
-        # ----------------------------------------------------------
-        #
-        # Pour chaque électrode, on calcule la moyenne et l'écart-type
-        # sur les 5120 points temporels.
-        #
-        # Après standardisation, chaque canal aura approximativement :
-        #
-        # moyenne = 0
-        # écart-type = 1
-        channel_mean = eeg.mean(
-            axis=1,
-            keepdims=True,
+        expected_shape = (
+            2,
+            self.expected_number_of_channels,
+            self.expected_number_of_timepoints,
         )
+        if data.shape != expected_shape:
+            raise ValueError(
+                f"Forme incorrecte pour {file_path} : {data.shape}. "
+                f"Forme attendue : {expected_shape}."
+            )
 
-        channel_std = eeg.std(
-            axis=1,
-            keepdims=True,
-        )
+        eeg = data[participant_index].astype(np.float32, copy=True)
 
-        eeg = (eeg - channel_mean) / (channel_std + 1e-8)
+        if not np.isfinite(eeg).all():
+            raise ValueError(
+                f"Le participant {participant_index + 1} de {file_path} "
+                "contient un NaN ou un infini."
+            )
 
-        # Comme eeg est déjà en float32, torch.from_numpy évite une copie
-        # supplémentaire inutile.
-        eeg = torch.from_numpy(eeg)
+        if self.standardize:
+            # Le calcul est effectué séparément pour chaque canal sur l'axe
+            # temporel. Cette opération réduit les différences d'amplitude
+            # entre participants dans les expériences ASC historiques.
+            channel_mean = eeg.mean(axis=1, keepdims=True)
+            channel_std = eeg.std(axis=1, keepdims=True)
+            eeg = (eeg - channel_mean) / (channel_std + 1e-8)
 
-        label = torch.tensor(
-            row["label"],
+        eeg_tensor = torch.from_numpy(eeg)
+        label_tensor = torch.tensor(
+            int(row["label"]),
             dtype=torch.long,
         )
+        return eeg_tensor, label_tensor
 
-        return eeg, label
-
-
-
-
-if __name__ == "__main__":
-
-    # Lecture des métadonnées
-    all_metadata = pd.read_csv(metadata_path)
-
-    # Préparation de la classification YO / YF
-    classification_table = prepare_classification_table(
-        metadata=all_metadata,
-        target_column="eyes_code",
-        allowed_classes=["YO", "YF"],
-        label_map={
-            "YO": 0,
-            "YF": 1,
-        },
-    )
-
-    # Création du Dataset participant
-    participant_dataset = ParticipantDataset(
-        classification_table=classification_table,
-        dataset_root=PROJECT_ROOT / "data" / "data_toy",
-    )
-
-    print(
-        "Nombre de fichiers :",
-        len(classification_table),
-    )
-
-    print(
-        "Nombre de participants :",
-        len(participant_dataset),
-    )
-
-    # Charge le premier participant du premier fichier
-    eeg_0, label_0 = participant_dataset[0]
-
-    # Charge le deuxième participant du premier fichier
-    eeg_1, label_1 = participant_dataset[1]
-
-    print("Participant 0 :", eeg_0.shape)
-    print("Label 0 :", label_0)
-
-    print("Participant 1 :", eeg_1.shape)
-    print("Label 1 :", label_1)

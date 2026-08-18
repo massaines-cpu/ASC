@@ -1,0 +1,14 @@
+{
+  "source_dataset": "data_final",
+  "target_dataset": "data_signal_jepa_128hz_uv",
+  "number_of_files": 338,
+  "source_sampling_frequency_hz": 512.0,
+  "target_sampling_frequency_hz": 128.0,
+  "source_timepoints": 5120,
+  "target_timepoints": 1280,
+  "duration_seconds": 10.0,
+  "bandpass_applied": false,
+  "bandpass_hz": null,
+  "unit_conversion": "volts_to_microvolts_x_1e6",
+  "z_score_applied": false
+}

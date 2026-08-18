@@ -43,6 +43,7 @@ def probabilities_and_predictions_from_logits(
 def collect_predictions(
     model: nn.Module,
     loader,
+    device: torch.device | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Retourne les labels, classes prédites et probabilités.
 
@@ -51,6 +52,14 @@ def collect_predictions(
     ``P(YO) = 1 - P(YF)`` puis ``P(YF)``.
     """
 
+    if device is None:
+        # Conserve la compatibilité avec les anciens appels tout en suivant
+        # automatiquement l'appareil sur lequel se trouve le modèle.
+        try:
+            device = next(model.parameters()).device
+        except StopIteration:
+            device = torch.device("cpu")
+
     model.eval()
     all_labels = []
     all_predictions = []
@@ -58,6 +67,11 @@ def collect_predictions(
 
     with torch.no_grad():
         for eeg, labels in loader:
+            # Le modèle et ses entrées doivent se trouver sur le même
+            # appareil. Les tableaux sont ensuite replacés sur CPU avant
+            # leur conversion vers NumPy et scikit-learn.
+            eeg = eeg.to(device)
+            labels = labels.to(device)
             logits = model(eeg)
 
             probabilities, predictions = (
@@ -83,10 +97,15 @@ def evaluate_fold(
     model: nn.Module,
     loader,
     results_dir: Path,
+    device: torch.device | None = None,
 ) -> dict[str, float]:
     """Évalue le meilleur checkpoint et enregistre les rapports du fold."""
 
-    labels, predictions, probabilities = collect_predictions(model, loader)
+    labels, predictions, probabilities = collect_predictions(
+        model,
+        loader,
+        device,
+    )
     correct_mask = predictions == labels
     predicted_confidences = probabilities.max(axis=1)
 

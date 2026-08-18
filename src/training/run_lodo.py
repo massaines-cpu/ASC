@@ -1,20 +1,25 @@
 """Point d'entrée du protocole Leave-One-Dyad-Out ASC.
 
-Exemples
---------
-Tester les tailles de la couche cachée sans Dropout :
+Le script entraîne toujours un modèle neuf pour chaque dyade de validation.
+Il prend en charge les architectures historiques et les deux variantes
+comparables de SignalJEPA.
 
-    python -m src.training.run_lodo --hidden-layer-size 128 --dropout-rate 0
-    python -m src.training.run_lodo --hidden-layer-size 64  --dropout-rate 0
-    python -m src.training.run_lodo --hidden-layer-size 32  --dropout-rate 0
+Test SignalJEPA conseillé
+-------------------------
+Un seul fold et trois epochs, sans MLflow :
 
-Tester le Dropout à taille constante :
-
-    python -m src.training.run_lodo --hidden-layer-size 128 --dropout-rate 0.2
-    python -m src.training.run_lodo --hidden-layer-size 128 --dropout-rate 0.5
+    python -m src.training.run_lodo \
+        --model-name signal_jepa_pretrained \
+        --folds J1 \
+        --epochs 3 \
+        --patience 3 \
+        --batch-size 2 \
+        --disable-mlflow
 """
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, BooleanOptionalAction
+from dataclasses import asdict
+import json
 from pathlib import Path
 import random
 
@@ -33,7 +38,7 @@ from src.evaluation.plots import (
     save_global_comparison,
 )
 from src.tracking.mlflow_track import MLflowTracker
-from src.training.config import ExperimentConfig
+from src.training.config import ExperimentConfig, SIGNAL_JEPA_MODEL_NAMES
 from src.training.early_stopping import EarlyStopping
 from src.training.epoch_runs import run_epoch
 from src.training.model_fabrication import create_model
@@ -43,14 +48,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10", "J15"]
 TEST_DYADS: list[str] = []
 
-# Le port 5000 est occupé par ControlCenter/AirPlay sur certains Mac.
-# Le serveur MLflow local du projet ASC utilise donc le port 5001.
+MODEL_NAMES = [
+    "linear",
+    "non_linear",
+    "small_cnn",
+    "eegnet",
+    "signal_jepa_scratch",
+    "signal_jepa_pretrained",
+]
+
+# Le port 5000 est utilisé par ControlCenter/AirPlay sur certains Mac.
 MLFLOW_TRACKING_URI = "http://127.0.0.1:5001"
 MLFLOW_EXPERIMENT_NAME = "ASC_YO_YF_EXPERIMENTS"
 
 
 def set_seed(seed: int) -> None:
-    """Fixe les générateurs utilisés pour l'initialisation et le Dropout."""
+    """Fixe les générateurs utilisés pour les poids et le Dropout."""
 
     random.seed(seed)
     np.random.seed(seed)
@@ -59,9 +72,31 @@ def set_seed(seed: int) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)
+
+
+def select_device(device_name: str) -> torch.device:
+    """Sélectionne explicitement CPU, CUDA ou le GPU MPS du Mac."""
+
+    if device_name == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+
+    if device_name == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA a été demandé mais n'est pas disponible.")
+
+    if device_name == "mps" and not torch.backends.mps.is_available():
+        raise RuntimeError("MPS a été demandé mais n'est pas disponible.")
+
+    return torch.device(device_name)
+
 
 def create_classification_table(project_root: Path) -> pd.DataFrame:
-    """Charge les métadonnées et conserve uniquement YO/YF."""
+    """Charge les métadonnées et conserve seulement les classes YO/YF."""
 
     metadata_path = project_root / "data" / "all_metadata.csv"
     if not metadata_path.exists():
@@ -76,6 +111,16 @@ def create_classification_table(project_root: Path) -> pd.DataFrame:
     )
 
 
+def save_checkpoint_on_cpu(model: nn.Module, checkpoint_path: Path) -> None:
+    """Sauvegarde un state_dict portable après entraînement sur GPU."""
+
+    cpu_state_dict = {
+        parameter_name: parameter.detach().cpu()
+        for parameter_name, parameter in model.state_dict().items()
+    }
+    torch.save(cpu_state_dict, checkpoint_path)
+
+
 def train_one_fold(
     validation_dyad: str,
     train_dyads: list[str],
@@ -84,8 +129,9 @@ def train_one_fold(
     results_dir: Path,
     models_dir: Path,
     tracker: MLflowTracker,
+    device: torch.device,
 ) -> tuple[dict[str, list[float]], dict[str, float | int]]:
-    """Entraîne un modèle neuf et évalue son meilleur checkpoint."""
+    """Entraîne puis évalue un modèle sur un fold LODO."""
 
     if validation_dyad in train_dyads:
         raise ValueError(
@@ -99,33 +145,57 @@ def train_one_fold(
         validation_dyads=[validation_dyad],
         test_dyads=TEST_DYADS,
         batch_size=config.batch_size,
+        standardize=config.standardize,
+        expected_number_of_channels=config.number_of_channels,
+        expected_number_of_timepoints=config.number_of_timepoints,
     )
 
-    # Une nouvelle initialisation aléatoire est créée dans chaque fold.
+    # La seed est réinitialisée avant chaque fold afin de rendre
+    # l'initialisation de chaque expérience reproductible.
     set_seed(config.random_seed)
     model = create_model(
         model_name=config.model_name,
         hidden_layer_size=config.hidden_layer_size,
         dropout_rate=config.dropout_rate,
+        number_of_channels=config.number_of_channels,
+        number_of_timepoints=config.number_of_timepoints,
+        sampling_frequency=config.sampling_frequency,
+        pretrained_checkpoint=config.pretrained_checkpoint,
+        freeze_strategy=config.freeze_strategy,
     )
-    # Les quatre architectures produisent un seul logit associé à YF.
-    # BCEWithLogitsLoss combine la Sigmoid et la binary cross-entropy
-    # de manière numériquement stable pendant l'apprentissage.
+    model = model.to(device)
+
     criterion = nn.BCEWithLogitsLoss()
+
+    # Les paramètres gelés sont exclus de l'optimiseur. Cela rend la
+    # stratégie classifier_only explicite et évite des calculs inutiles.
+    trainable_parameters = [
+        parameter
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    ]
+    if not trainable_parameters:
+        raise RuntimeError("Le modèle ne contient aucun paramètre entraînable.")
+
     optimizer = torch.optim.Adam(
-        model.parameters(),
+        trainable_parameters,
         lr=config.learning_rate,
     )
 
-    number_of_parameters = sum(
+    total_parameter_count = sum(
         parameter.numel()
         for parameter in model.parameters()
-        if parameter.requires_grad
+    )
+    trainable_parameter_count = sum(
+        parameter.numel()
+        for parameter in trainable_parameters
     )
 
     print(
         f"Modèle : {config.model_name} | "
-        f"Paramètres entraînables : {number_of_parameters:,}"
+        f"Paramètres totaux : {total_parameter_count:,} | "
+        f"Paramètres entraînables : {trainable_parameter_count:,} | "
+        f"Appareil : {device}"
     )
 
     history = {
@@ -152,15 +222,36 @@ def train_one_fold(
         "validation_dyad": validation_dyad,
         "training_dyads": ",".join(train_dyads),
         "protocol": "Leave-One-Dyad-Out",
-        "standardized": True,
-        "training_type": "from_scratch",
+        "standardized": config.standardize,
+        "number_of_channels": config.number_of_channels,
+        "number_of_timepoints": config.number_of_timepoints,
+        "sampling_frequency_hz": config.sampling_frequency,
+        "preprocessing": config.preprocessing_name,
+        "data_unit": (
+            "microvolts"
+            if config.is_signal_jepa
+            else ("unitless_z_score" if config.standardize else "volts")
+        ),
+        "training_type": (
+            "pretrained"
+            if config.uses_pretrained_weights
+            else "from_scratch"
+        ),
+        "pretrained_checkpoint": (
+            config.pretrained_checkpoint
+            if config.uses_pretrained_weights
+            else "none"
+        ),
+        "freeze_strategy": config.freeze_strategy,
+        "device": str(device),
         "batch_size": config.batch_size,
         "learning_rate": config.learning_rate,
         "maximum_epochs": config.number_of_epochs,
         "early_stopping_patience": config.early_stopping_patience,
         "early_stopping_min_delta": config.early_stopping_min_delta,
         "random_seed": config.random_seed,
-        "trainable_parameters": number_of_parameters,
+        "total_parameters": total_parameter_count,
+        "trainable_parameters": trainable_parameter_count,
         "loss_function": criterion.__class__.__name__,
     }
 
@@ -173,11 +264,16 @@ def train_one_fold(
                 loader=train_loader,
                 criterion=criterion,
                 optimizer=optimizer,
+                device=device,
+                freeze_strategy=config.freeze_strategy,
             )
             validation_loss, validation_accuracy = run_epoch(
                 model=model,
                 loader=validation_loader,
                 criterion=criterion,
+                optimizer=None,
+                device=device,
+                freeze_strategy=config.freeze_strategy,
             )
 
             history["train_loss"].append(train_loss)
@@ -197,7 +293,7 @@ def train_one_fold(
             if improved:
                 best_epoch = epoch_number
                 best_validation_accuracy = validation_accuracy
-                torch.save(model.state_dict(), best_model_path)
+                save_checkpoint_on_cpu(model, best_model_path)
 
             print(
                 f"Fold {validation_dyad} | "
@@ -225,17 +321,26 @@ def train_one_fold(
 
         save_fold_plots(validation_dyad, history, results_dir)
 
-        model.load_state_dict(
-            torch.load(best_model_path, weights_only=True)
+        best_state_dict = torch.load(
+            best_model_path,
+            map_location=device,
+            weights_only=True,
         )
+        model.load_state_dict(best_state_dict)
+
         evaluation_metrics = evaluate_fold(
             validation_dyad=validation_dyad,
             model=model,
             loader=validation_loader,
             results_dir=results_dir,
+            device=device,
         )
 
-        labels, predictions, _ = collect_predictions(model, validation_loader)
+        labels, predictions, _ = collect_predictions(
+            model,
+            validation_loader,
+            device,
+        )
         matrix = confusion_matrix(labels, predictions, labels=[0, 1])
         save_confusion_matrix_plot(
             validation_dyad,
@@ -268,23 +373,66 @@ def train_one_fold(
 
 
 def parse_arguments():
-    """Permet de lancer plusieurs expériences sans modifier le code."""
+    """Permet de lancer une expérience sans modifier le code source."""
 
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset-version", default="data_final")
     parser.add_argument(
         "--model-name",
-        choices=["linear", "non_linear", "small_cnn", "eegnet"],
+        choices=MODEL_NAMES,
         default="non_linear",
+    )
+    parser.add_argument(
+        "--dataset-version",
+        default=None,
+        help=(
+            "Par défaut : data_final pour les anciens modèles et "
+            "data_signal_jepa_128hz_uv pour SignalJEPA."
+        ),
+    )
+    parser.add_argument(
+        "--folds",
+        nargs="+",
+        default=None,
+        help="Dyades à exécuter, par exemple --folds J1 ou --folds J1 J2.",
     )
     parser.add_argument("--hidden-layer-size", type=int, default=32)
     parser.add_argument("--dropout-rate", type=float, default=0.0)
-    parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Par défaut : 5, ou 2 pour SignalJEPA afin de limiter la mémoire.",
+    )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--min-delta", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--standardize",
+        action=BooleanOptionalAction,
+        default=None,
+        help=(
+            "Par défaut : activé pour les anciens modèles et désactivé "
+            "pour SignalJEPA. Options : --standardize / --no-standardize."
+        ),
+    )
+    parser.add_argument("--number-of-timepoints", type=int, default=None)
+    parser.add_argument("--sampling-frequency", type=float, default=None)
+    parser.add_argument(
+        "--pretrained-checkpoint",
+        default="braindecode/signal-jepa",
+    )
+    parser.add_argument(
+        "--freeze-strategy",
+        choices=["full_finetuning", "classifier_only"],
+        default="full_finetuning",
+    )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "mps", "cuda"],
+        default="auto",
+    )
     parser.add_argument(
         "--disable-mlflow",
         action="store_true",
@@ -293,31 +441,118 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def main() -> None:
-    """Exécute les huit folds puis produit le résumé global."""
+def create_config_from_arguments(arguments) -> ExperimentConfig:
+    """Résout les valeurs SignalJEPA sans changer les anciens modèles."""
 
-    arguments = parse_arguments()
-    config = ExperimentConfig(
+    is_signal_jepa = arguments.model_name in SIGNAL_JEPA_MODEL_NAMES
+
+    dataset_version = arguments.dataset_version
+    if dataset_version is None:
+        dataset_version = (
+            "data_signal_jepa_128hz_uv"
+            if is_signal_jepa
+            else "data_final"
+        )
+
+    standardize = arguments.standardize
+    if standardize is None:
+        standardize = not is_signal_jepa
+
+    number_of_timepoints = arguments.number_of_timepoints
+    if number_of_timepoints is None:
+        number_of_timepoints = 1280 if is_signal_jepa else 5120
+
+    sampling_frequency = arguments.sampling_frequency
+    if sampling_frequency is None:
+        sampling_frequency = 128.0 if is_signal_jepa else 512.0
+
+    batch_size = arguments.batch_size
+    if batch_size is None:
+        batch_size = 2 if is_signal_jepa else 5
+
+    return ExperimentConfig(
         project_root=PROJECT_ROOT,
-        dataset_version=arguments.dataset_version,
+        dataset_version=dataset_version,
         model_name=arguments.model_name,
         hidden_layer_size=arguments.hidden_layer_size,
         dropout_rate=arguments.dropout_rate,
-        batch_size=arguments.batch_size,
+        batch_size=batch_size,
         number_of_epochs=arguments.epochs,
         learning_rate=arguments.learning_rate,
         early_stopping_patience=arguments.patience,
         early_stopping_min_delta=arguments.min_delta,
         random_seed=arguments.seed,
+        standardize=standardize,
+        number_of_channels=32,
+        number_of_timepoints=number_of_timepoints,
+        sampling_frequency=sampling_frequency,
+        pretrained_checkpoint=arguments.pretrained_checkpoint,
+        freeze_strategy=arguments.freeze_strategy,
+        device_name=arguments.device,
     )
 
+
+def validate_selected_folds(requested_folds: list[str] | None) -> list[str]:
+    """Valide un sous-ensemble de folds pour les tests courts."""
+
+    if requested_folds is None:
+        return DEVELOPMENT_DYADS.copy()
+
+    unknown_folds = set(requested_folds) - set(DEVELOPMENT_DYADS)
+    if unknown_folds:
+        raise ValueError(
+            f"Dyades inconnues : {sorted(unknown_folds)}. "
+            f"Valeurs possibles : {DEVELOPMENT_DYADS}."
+        )
+
+    return list(dict.fromkeys(requested_folds))
+
+
+def save_experiment_config(
+    config: ExperimentConfig,
+    selected_folds: list[str],
+    results_dir: Path,
+) -> None:
+    """Enregistre la configuration exacte utilisée."""
+
+    config_dictionary = asdict(config)
+    config_dictionary["project_root"] = str(config.project_root)
+    config_dictionary["selected_folds"] = selected_folds
+
+    config_path = results_dir / "experiment_config.json"
+    config_path.write_text(
+        json.dumps(config_dictionary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def main() -> None:
+    """Exécute les folds demandés puis produit le résumé global."""
+
+    arguments = parse_arguments()
+    config = create_config_from_arguments(arguments)
+    selected_folds = validate_selected_folds(arguments.folds)
+    device = select_device(config.device_name)
+
     if not config.dataset_root.exists():
-        raise FileNotFoundError(f"Dataset introuvable : {config.dataset_root}")
+        raise FileNotFoundError(
+            f"Dataset introuvable : {config.dataset_root}. "
+            "Pour SignalJEPA, exécute d'abord "
+            "python -m src.dataset.prepare_signal_jepa_dataset."
+        )
+
+    if config.is_signal_jepa and config.standardize:
+        print(
+            "ATTENTION : SignalJEPA est lancé avec un Z-score. Cette option "
+            "constitue une ablation distincte du protocole principal en "
+            "microvolts sans Z-score."
+        )
 
     results_dir = PROJECT_ROOT / "results" / config.experiment_name
     models_dir = PROJECT_ROOT / "models" / config.experiment_name
     results_dir.mkdir(parents=True, exist_ok=True)
     models_dir.mkdir(parents=True, exist_ok=True)
+    save_experiment_config(config, selected_folds, results_dir)
 
     tracker = MLflowTracker(
         tracking_uri=MLFLOW_TRACKING_URI,
@@ -327,10 +562,17 @@ def main() -> None:
     classification_table = create_classification_table(PROJECT_ROOT)
     set_seed(config.random_seed)
 
+    print("Appareil sélectionné :", device)
+    print("Dataset              :", config.dataset_root)
+    print("Standardisation      :", config.standardize)
+    print("Folds demandés       :", selected_folds)
+
     all_histories = {}
     fold_summaries = []
 
-    for validation_dyad in DEVELOPMENT_DYADS:
+    for validation_dyad in selected_folds:
+        # Même lors d'un test limité à J1, l'entraînement utilise toutes les
+        # autres dyades, conformément au protocole LODO.
         train_dyads = [
             dyad
             for dyad in DEVELOPMENT_DYADS
@@ -352,6 +594,7 @@ def main() -> None:
             results_dir=results_dir,
             models_dir=models_dir,
             tracker=tracker,
+            device=device,
         )
         all_histories[validation_dyad] = history
         fold_summaries.append({
@@ -359,14 +602,25 @@ def main() -> None:
             **summary,
         })
 
+        if device.type == "mps":
+            torch.mps.empty_cache()
+        elif device.type == "cuda":
+            torch.cuda.empty_cache()
+
     summary_table = pd.DataFrame(fold_summaries)
     summary_table.to_csv(results_dir / "lodo_cv_summary.csv", index=False)
     save_global_comparison(all_histories, results_dir)
 
     mean_accuracy = summary_table["best_validation_accuracy"].mean()
-    std_accuracy = summary_table["best_validation_accuracy"].std()
     mean_loss = summary_table["best_validation_loss"].mean()
-    std_loss = summary_table["best_validation_loss"].std()
+
+    if len(summary_table) > 1:
+        std_accuracy = summary_table["best_validation_accuracy"].std()
+        std_loss = summary_table["best_validation_loss"].std()
+    else:
+        # Un seul fold est un test technique et ne mesure pas la variabilité.
+        std_accuracy = 0.0
+        std_loss = 0.0
 
     print("\n" + "=" * 70)
     print("RÉSUMÉ GLOBAL DE LA CROSS-VALIDATION")

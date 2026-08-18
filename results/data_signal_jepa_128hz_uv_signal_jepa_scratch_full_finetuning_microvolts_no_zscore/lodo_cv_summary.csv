@@ -1,0 +1,2 @@
+validation_dyad,best_epoch,best_validation_loss,best_validation_accuracy,final_train_loss,final_train_accuracy,final_validation_loss,final_validation_accuracy
+J1,3,0.6931531017734891,0.5,0.710000387216742,0.5,0.6932412073725746,0.5
