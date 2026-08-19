@@ -4,8 +4,7 @@ Le script entraîne toujours un modèle neuf pour chaque dyade de validation.
 Il prend en charge les architectures historiques et les deux variantes
 comparables de SignalJEPA.
 
-Les choix expérimentaux sont regroupés dans
-``src/training/experiment_settings.py``. Il suffit de modifier ce fichier,
+ Il suffit de modifier ce fichier,
 puis de lancer ``run_lodo.py`` depuis PyCharm ou avec :
 
     python -m src.training.run_lodo
@@ -34,7 +33,6 @@ from src.tracking.mlflow_track import MLflowTracker
 from src.training.config import ExperimentConfig
 from src.training.early_stopping import EarlyStopping
 from src.training.epoch_runs import run_epoch
-from src.training import experiment_settings as settings
 from src.training.model_fabrication import create_model
 
 
@@ -45,6 +43,42 @@ TEST_DYADS: list[str] = []
 # Le port 5000 est utilisé par ControlCenter/AirPlay sur certains Mac.
 MLFLOW_TRACKING_URI = "http://127.0.0.1:5001"
 MLFLOW_EXPERIMENT_NAME = "ASC_YO_YF_EXPERIMENTS"
+#données + modele
+# Modèles possibles :
+# linear, non_linear, small_cnn, eegnet,
+# signal_jepa_scratch, signal_jepa_pretrained.
+MODEL_NAME = "signal_jepa_pretrained"
+# Dataset préparé à 128 Hz et exprimé en microvolts.
+DATASET_VERSION = "data_signal_jepa_128hz_uv"
+# Une liste limite le test aux folds indiqués.
+# Mettre None uniquement lorsque les huit folds doivent être lancés.
+SELECTED_FOLDS = ["J1"]
+#pretraitenement et dimension
+# SignalJEPA attend ici les microvolts sans Z-score.
+STANDARDIZE = False
+NUMBER_OF_CHANNELS = 32
+NUMBER_OF_TIMEPOINTS = 1280
+SAMPLING_FREQUENCY = 128.0
+#entrainement
+BATCH_SIZE = 2
+NUMBER_OF_EPOCHS = 20
+LEARNING_RATE = 0.001
+EARLY_STOPPING_PATIENCE = 6
+EARLY_STOPPING_MIN_DELTA = 1e-4
+RANDOM_SEED = 42
+# Ces deux valeurs servent uniquement au MLP non linéaire.
+HIDDEN_LAYER_SIZE = 32
+DROPOUT_RATE = 0.0
+#transfert apprentissage
+PRETRAINED_CHECKPOINT = "braindecode/signal-jepa"
+# full_finetuning : encodeur et tête entraînés.
+# classifier_only : encodeur gelé, seule la tête YO/YF apprend.
+FREEZE_STRATEGY = "classifier_only"
+#excecution et suivi
+# Valeurs possibles : auto, cpu, mps, cuda.
+DEVICE_NAME = "mps"
+# False permet de travailler sans serveur MLflow.
+ENABLE_MLFLOW = False
 
 
 def set_seed(seed: int) -> None:
@@ -367,28 +401,27 @@ def train_one_fold(
     return history, summary
 
 
-def create_config_from_settings() -> ExperimentConfig:
-    """Construit la configuration depuis experiment_settings.py."""
+def create_config_from_settings():
 
     return ExperimentConfig(
         project_root=PROJECT_ROOT,
-        dataset_version=settings.DATASET_VERSION,
-        model_name=settings.MODEL_NAME,
-        hidden_layer_size=settings.HIDDEN_LAYER_SIZE,
-        dropout_rate=settings.DROPOUT_RATE,
-        batch_size=settings.BATCH_SIZE,
-        number_of_epochs=settings.NUMBER_OF_EPOCHS,
-        learning_rate=settings.LEARNING_RATE,
-        early_stopping_patience=settings.EARLY_STOPPING_PATIENCE,
-        early_stopping_min_delta=settings.EARLY_STOPPING_MIN_DELTA,
-        random_seed=settings.RANDOM_SEED,
-        standardize=settings.STANDARDIZE,
-        number_of_channels=settings.NUMBER_OF_CHANNELS,
-        number_of_timepoints=settings.NUMBER_OF_TIMEPOINTS,
-        sampling_frequency=settings.SAMPLING_FREQUENCY,
-        pretrained_checkpoint=settings.PRETRAINED_CHECKPOINT,
-        freeze_strategy=settings.FREEZE_STRATEGY,
-        device_name=settings.DEVICE_NAME,
+        dataset_version=DATASET_VERSION,
+        model_name=MODEL_NAME,
+        hidden_layer_size=HIDDEN_LAYER_SIZE,
+        dropout_rate=DROPOUT_RATE,
+        batch_size=BATCH_SIZE,
+        number_of_epochs=NUMBER_OF_EPOCHS,
+        learning_rate=LEARNING_RATE,
+        early_stopping_patience=EARLY_STOPPING_PATIENCE,
+        early_stopping_min_delta=EARLY_STOPPING_MIN_DELTA,
+        random_seed=RANDOM_SEED,
+        standardize=STANDARDIZE,
+        number_of_channels=NUMBER_OF_CHANNELS,
+        number_of_timepoints=NUMBER_OF_TIMEPOINTS,
+        sampling_frequency=SAMPLING_FREQUENCY,
+        pretrained_checkpoint=PRETRAINED_CHECKPOINT,
+        freeze_strategy=FREEZE_STRATEGY,
+        device_name=DEVICE_NAME,
     )
 
 
@@ -430,7 +463,7 @@ def main() -> None:
     """Exécute les folds demandés puis produit le résumé global."""
 
     config = create_config_from_settings()
-    selected_folds = validate_selected_folds(settings.SELECTED_FOLDS)
+    selected_folds = validate_selected_folds(SELECTED_FOLDS)
     device = select_device(config.device_name)
 
     if not config.dataset_root.exists():
@@ -456,7 +489,7 @@ def main() -> None:
     tracker = MLflowTracker(
         tracking_uri=MLFLOW_TRACKING_URI,
         experiment_name=MLFLOW_EXPERIMENT_NAME,
-        enabled=settings.ENABLE_MLFLOW,
+        enabled=ENABLE_MLFLOW,
     )
     classification_table = create_classification_table(PROJECT_ROOT)
     set_seed(config.random_seed)
