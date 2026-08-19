@@ -4,21 +4,13 @@ Le script entraîne toujours un modèle neuf pour chaque dyade de validation.
 Il prend en charge les architectures historiques et les deux variantes
 comparables de SignalJEPA.
 
-Test SignalJEPA conseillé
--------------------------
-Un seul fold et trois epochs, sans MLflow :
+Les choix expérimentaux sont regroupés dans
+``src/training/experiment_settings.py``. Il suffit de modifier ce fichier,
+puis de lancer ``run_lodo.py`` depuis PyCharm ou avec :
 
-    python -m src.training.run_lodo \
-        --model-name signal_jepa_pretrained \
-        --freeze-strategy classifier_only \
-        --folds J1 \
-        --epochs 3 \
-        --patience 3 \
-        --batch-size 2 \
-        --disable-mlflow
+    python -m src.training.run_lodo
 """
 
-from argparse import ArgumentParser, BooleanOptionalAction
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -39,24 +31,16 @@ from src.evaluation.plots import (
     save_global_comparison,
 )
 from src.tracking.mlflow_track import MLflowTracker
-from src.training.config import ExperimentConfig, SIGNAL_JEPA_MODEL_NAMES
+from src.training.config import ExperimentConfig
 from src.training.early_stopping import EarlyStopping
 from src.training.epoch_runs import run_epoch
+from src.training import experiment_settings as settings
 from src.training.model_fabrication import create_model
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEVELOPMENT_DYADS = ["J1", "J2", "J4", "J5", "J7", "J8", "J10", "J15"]
 TEST_DYADS: list[str] = []
-
-MODEL_NAMES = [
-    "linear",
-    "non_linear",
-    "small_cnn",
-    "eegnet",
-    "signal_jepa_scratch",
-    "signal_jepa_pretrained",
-]
 
 # Le port 5000 est utilisé par ControlCenter/AirPlay sur certains Mac.
 MLFLOW_TRACKING_URI = "http://127.0.0.1:5001"
@@ -383,123 +367,28 @@ def train_one_fold(
     return history, summary
 
 
-def parse_arguments():
-    """Permet de lancer une expérience sans modifier le code source."""
-
-    parser = ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--model-name",
-        choices=MODEL_NAMES,
-        default="non_linear",
-    )
-    parser.add_argument(
-        "--dataset-version",
-        default=None,
-        help=(
-            "Par défaut : data_final pour les anciens modèles et "
-            "data_signal_jepa_128hz_uv pour SignalJEPA."
-        ),
-    )
-    parser.add_argument(
-        "--folds",
-        nargs="+",
-        default=None,
-        help="Dyades à exécuter, par exemple --folds J1 ou --folds J1 J2.",
-    )
-    parser.add_argument("--hidden-layer-size", type=int, default=32)
-    parser.add_argument("--dropout-rate", type=float, default=0.0)
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=None,
-        help="Par défaut : 5, ou 2 pour SignalJEPA afin de limiter la mémoire.",
-    )
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
-    parser.add_argument("--patience", type=int, default=15)
-    parser.add_argument("--min-delta", type=float, default=1e-4)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--standardize",
-        action=BooleanOptionalAction,
-        default=None,
-        help=(
-            "Par défaut : activé pour les anciens modèles et désactivé "
-            "pour SignalJEPA. Options : --standardize / --no-standardize."
-        ),
-    )
-    parser.add_argument("--number-of-timepoints", type=int, default=None)
-    parser.add_argument("--sampling-frequency", type=float, default=None)
-    parser.add_argument(
-        "--pretrained-checkpoint",
-        default="braindecode/signal-jepa",
-    )
-    parser.add_argument(
-        "--freeze-strategy",
-        choices=["full_finetuning", "classifier_only"],
-        default="full_finetuning",
-    )
-    parser.add_argument(
-        "--device",
-        choices=["auto", "cpu", "mps", "cuda"],
-        default="auto",
-    )
-    parser.add_argument(
-        "--disable-mlflow",
-        action="store_true",
-        help="Exécute l'expérience sans contacter le serveur MLflow.",
-    )
-    return parser.parse_args()
-
-
-def create_config_from_arguments(arguments) -> ExperimentConfig:
-    """Résout les valeurs SignalJEPA sans changer les anciens modèles."""
-
-    is_signal_jepa = arguments.model_name in SIGNAL_JEPA_MODEL_NAMES
-
-    dataset_version = arguments.dataset_version
-    if dataset_version is None:
-        dataset_version = (
-            "data_signal_jepa_128hz_uv"
-            if is_signal_jepa
-            else "data_final"
-        )
-
-    standardize = arguments.standardize
-    if standardize is None:
-        standardize = not is_signal_jepa
-
-    number_of_timepoints = arguments.number_of_timepoints
-    if number_of_timepoints is None:
-        number_of_timepoints = 1280 if is_signal_jepa else 5120
-
-    sampling_frequency = arguments.sampling_frequency
-    if sampling_frequency is None:
-        sampling_frequency = 128.0 if is_signal_jepa else 512.0
-
-    batch_size = arguments.batch_size
-    if batch_size is None:
-        batch_size = 2 if is_signal_jepa else 5
+def create_config_from_settings() -> ExperimentConfig:
+    """Construit la configuration depuis experiment_settings.py."""
 
     return ExperimentConfig(
         project_root=PROJECT_ROOT,
-        dataset_version=dataset_version,
-        model_name=arguments.model_name,
-        hidden_layer_size=arguments.hidden_layer_size,
-        dropout_rate=arguments.dropout_rate,
-        batch_size=batch_size,
-        number_of_epochs=arguments.epochs,
-        learning_rate=arguments.learning_rate,
-        early_stopping_patience=arguments.patience,
-        early_stopping_min_delta=arguments.min_delta,
-        random_seed=arguments.seed,
-        standardize=standardize,
-        number_of_channels=32,
-        number_of_timepoints=number_of_timepoints,
-        sampling_frequency=sampling_frequency,
-        pretrained_checkpoint=arguments.pretrained_checkpoint,
-        freeze_strategy=arguments.freeze_strategy,
-        device_name=arguments.device,
+        dataset_version=settings.DATASET_VERSION,
+        model_name=settings.MODEL_NAME,
+        hidden_layer_size=settings.HIDDEN_LAYER_SIZE,
+        dropout_rate=settings.DROPOUT_RATE,
+        batch_size=settings.BATCH_SIZE,
+        number_of_epochs=settings.NUMBER_OF_EPOCHS,
+        learning_rate=settings.LEARNING_RATE,
+        early_stopping_patience=settings.EARLY_STOPPING_PATIENCE,
+        early_stopping_min_delta=settings.EARLY_STOPPING_MIN_DELTA,
+        random_seed=settings.RANDOM_SEED,
+        standardize=settings.STANDARDIZE,
+        number_of_channels=settings.NUMBER_OF_CHANNELS,
+        number_of_timepoints=settings.NUMBER_OF_TIMEPOINTS,
+        sampling_frequency=settings.SAMPLING_FREQUENCY,
+        pretrained_checkpoint=settings.PRETRAINED_CHECKPOINT,
+        freeze_strategy=settings.FREEZE_STRATEGY,
+        device_name=settings.DEVICE_NAME,
     )
 
 
@@ -540,9 +429,8 @@ def save_experiment_config(
 def main() -> None:
     """Exécute les folds demandés puis produit le résumé global."""
 
-    arguments = parse_arguments()
-    config = create_config_from_arguments(arguments)
-    selected_folds = validate_selected_folds(arguments.folds)
+    config = create_config_from_settings()
+    selected_folds = validate_selected_folds(settings.SELECTED_FOLDS)
     device = select_device(config.device_name)
 
     if not config.dataset_root.exists():
@@ -568,7 +456,7 @@ def main() -> None:
     tracker = MLflowTracker(
         tracking_uri=MLFLOW_TRACKING_URI,
         experiment_name=MLFLOW_EXPERIMENT_NAME,
-        enabled=not arguments.disable_mlflow,
+        enabled=settings.ENABLE_MLFLOW,
     )
     classification_table = create_classification_table(PROJECT_ROOT)
     set_seed(config.random_seed)

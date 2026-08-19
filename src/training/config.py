@@ -9,6 +9,21 @@ SIGNAL_JEPA_MODEL_NAMES = {
     "signal_jepa_pretrained",
 }
 
+SUPPORTED_MODEL_NAMES = {
+    "linear",
+    "non_linear",
+    "small_cnn",
+    "eegnet",
+    *SIGNAL_JEPA_MODEL_NAMES,
+}
+
+SUPPORTED_DEVICE_NAMES = {
+    "auto",
+    "cpu",
+    "mps",
+    "cuda",
+}
+
 SIGNAL_JEPA_FREEZE_STRATEGIES = {
     "full_finetuning",
     "classifier_only",
@@ -39,6 +54,18 @@ class ExperimentConfig:
     device_name: str = "auto"
 
     def __post_init__(self) -> None:
+        if self.model_name not in SUPPORTED_MODEL_NAMES:
+            raise ValueError(
+                f"Modèle inconnu : {self.model_name}. "
+                f"Valeurs possibles : {sorted(SUPPORTED_MODEL_NAMES)}."
+            )
+        if self.device_name not in SUPPORTED_DEVICE_NAMES:
+            raise ValueError(
+                f"Appareil inconnu : {self.device_name}. "
+                f"Valeurs possibles : {sorted(SUPPORTED_DEVICE_NAMES)}."
+            )
+        if not self.dataset_version:
+            raise ValueError("dataset_version ne doit pas être vide.")
         if self.batch_size <= 0:
             raise ValueError("batch_size doit être strictement positif.")
         if self.number_of_epochs <= 0:
