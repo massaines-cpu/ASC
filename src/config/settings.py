@@ -172,11 +172,43 @@ SIGNAL_JEPA_EXPERIMENTS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# 19 canaux (montage réduit, tutoriel) vs 32 canaux (montage ASC complet),
+# même variante (scratch/full_finetuning) pour isoler l'effet du nombre de
+# canaux — SignalJEPA_Contextual à 32 canaux ne convergeait pas
+# (déséquilibre structurel documenté dans signal_jepa_model.py), d'où le
+# passage à SignalJEPA_PreLocal, qui n'a jamais dépendu du nombre de canaux.
+# ---------------------------------------------------------------------------
+SIGNAL_JEPA_CHANNELS_EXPERIMENTS = (
+    ExperimentSpec(
+        label="PreLocal 19ch — scratch",
+        result_directory_name=(
+            "data_signal_jepa_prelocal_19ch_128hz_2s_uv_"
+            "signal_jepa_prelocal_scratch_full_finetuning_"
+            "19ch_128hz_2s_microvolts_no_zscore_lr_0.005_"
+            "batch_16_epochs_10_patience_5_seed_42"
+        ),
+        family="signal_jepa_channels",
+    ),
+    ExperimentSpec(
+        label="PreLocal 32ch — scratch",
+        result_directory_name=(
+            "data_signal_jepa_prelocal_32ch_128hz_2s_uv_"
+            "signal_jepa_prelocal_scratch_full_finetuning_"
+            "32ch_128hz_2s_microvolts_no_zscore_lr_0.005_"
+            "batch_16_epochs_10_patience_5_seed_42"
+        ),
+        family="signal_jepa_channels",
+    ),
+)
+
+
 COMPARISON_GROUPS = {
     "mlp_hidden_size": MLP_HIDDEN_SIZE_EXPERIMENTS,
     "mlp_dropout": MLP_DROPOUT_EXPERIMENTS,
     "architectures": ARCHITECTURE_EXPERIMENTS,
     "signal_jepa": SIGNAL_JEPA_EXPERIMENTS,
+    "signal_jepa_channels": SIGNAL_JEPA_CHANNELS_EXPERIMENTS,
 }
 
 

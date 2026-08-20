@@ -42,7 +42,7 @@ def save_fold_history_and_plots(
     axes[0].plot(
         epochs,
         history_table["validation_participant_loss"],
-        label="Validation — participants",
+        label="Validation participants",
     )
     axes[0].set_title("Loss")
     axes[0].set_xlabel("Epoch")
@@ -72,7 +72,7 @@ def save_fold_history_and_plots(
         epochs,
         history_table["validation_participant_accuracy"],
         color="tab:green",
-        label="Validation — participants",
+        label="Validation participants",
     )
     axes[2].set_title("Accuracy scientifique finale")
     axes[2].set_xlabel("Epoch")
@@ -82,7 +82,7 @@ def save_fold_history_and_plots(
     axes[2].legend()
 
     figure.suptitle(
-        f"SignalJEPA PreLocal — validation {validation_dyad}"
+        f"SignalJEPA PreLocal validation {validation_dyad}"
     )
     figure.tight_layout(rect=[0, 0, 1, 0.94])
     figure.savefig(
@@ -117,7 +117,7 @@ def save_confusion_matrix_plot(
     axis.set_xlabel("Classe prédite")
     axis.set_ylabel("Classe réelle")
     axis.set_title(
-        f"Matrice participant — validation {validation_dyad}"
+        f"Matrice participant validation {validation_dyad}"
     )
 
     threshold = matrix.max() / 2 if matrix.size else 0
@@ -147,43 +147,73 @@ def save_global_fold_comparison(
     histories: dict[str, dict[str, list[float]]],
     results_dir: Path,
 ) -> None:
-    """Compare la validation participant des folds exécutés."""
+    """Compare train et validation de tous les folds exécutés.
+
+    ne jamais présenter la validation
+    seule, toujours l'accompagner du train pour montrer l'écart entre les
+    deux (signe de surapprentissage). Le train est mesuré au niveau
+    fenêtre (l'unité d'entraînement de PreLocal) et la validation au niveau
+    participant (l'unité d'évaluation scientifique du projet) : les deux
+    échelles ne sont pas directement comparables valeur à valeur, donc le
+    titre de chaque axe le précise explicitement plutôt que de laisser
+    croire à une correspondance directe fenêtre/participant.
+    """
 
     if not histories:
         raise ValueError("Aucun historique de fold à représenter.")
 
     figure, axes = plt.subplots(1, 2, figsize=(14, 5))
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-    for validation_dyad, history in histories.items():
-        epochs = np.arange(
-            1,
-            len(history["validation_participant_loss"]) + 1,
+    for dyad_index, (validation_dyad, history) in enumerate(histories.items()):
+        color = color_cycle[dyad_index % len(color_cycle)]
+        train_epochs = np.arange(1, len(history["train_window_loss"]) + 1)
+        validation_epochs = np.arange(
+            1, len(history["validation_participant_loss"]) + 1
+        )
+
+        axes[0].plot(
+            train_epochs,
+            history["train_window_loss"],
+            "--",
+            color=color,
+            alpha=0.6,
         )
         axes[0].plot(
-            epochs,
+            validation_epochs,
             history["validation_participant_loss"],
-            label=validation_dyad,
-        )
-        axes[1].plot(
-            epochs,
-            history["validation_participant_accuracy"],
+            color=color,
             label=validation_dyad,
         )
 
-    axes[0].set_title("Validation loss participant")
+        axes[1].plot(
+            train_epochs,
+            history["train_window_accuracy"],
+            "--",
+            color=color,
+            alpha=0.6,
+        )
+        axes[1].plot(
+            validation_epochs,
+            history["validation_participant_accuracy"],
+            color=color,
+            label=validation_dyad,
+        )
+
+    axes[0].set_title("Loss train (pointillé) vs validation (participant)")
     axes[0].set_xlabel("Epoch")
     axes[0].set_ylabel("Binary cross-entropy")
     axes[0].grid(alpha=0.3)
-    axes[0].legend(title="Dyade")
+    axes[0].legend(title="Dyade (validation)")
 
-    axes[1].set_title("Validation accuracy participant")
+    axes[1].set_title("Accuracy train ( pointillé) vs validation (participant)")
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Accuracy")
     axes[1].set_ylim(0, 1)
     axes[1].grid(alpha=0.3)
-    axes[1].legend(title="Dyade")
+    axes[1].legend(title="Dyade (validation)")
 
-    figure.suptitle("SignalJEPA PreLocal — Leave-One-Dyad-Out")
+    figure.suptitle("SignalJEPA PreLocal Leave-One-Dyad-Out (train vs validation)")
     figure.tight_layout(rect=[0, 0, 1, 0.94])
     figure.savefig(
         results_dir / "all_folds_participant_comparison.png",

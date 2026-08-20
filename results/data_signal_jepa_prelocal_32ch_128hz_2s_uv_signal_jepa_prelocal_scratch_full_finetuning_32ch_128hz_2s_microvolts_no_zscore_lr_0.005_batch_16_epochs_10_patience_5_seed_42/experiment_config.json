@@ -1,0 +1,29 @@
+{
+  "project_root": "/Users/nini/ASC",
+  "dataset_version": "data_signal_jepa_prelocal_32ch_128hz_2s_uv",
+  "model_variant": "scratch",
+  "freeze_strategy": "full_finetuning",
+  "batch_size": 16,
+  "number_of_epochs": 10,
+  "learning_rate": 0.005,
+  "weight_decay": 0.01,
+  "early_stopping_patience": 5,
+  "early_stopping_min_delta": 0.0001,
+  "random_seed": 42,
+  "device_name": "mps",
+  "selected_folds": [
+    "J1",
+    "J2",
+    "J4",
+    "J5",
+    "J7",
+    "J8",
+    "J10",
+    "J15"
+  ],
+  "pretrained_checkpoint": "braindecode/signal-jepa_without-chans",
+  "number_of_channels": 32,
+  "number_of_timepoints": 256,
+  "sampling_frequency": 128.0,
+  "windows_per_participant": 5
+}

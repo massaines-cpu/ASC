@@ -1,10 +1,11 @@
 """Dataset et DataLoaders pour les fenêtres SignalJEPA PreLocal.
 
-Un fichier préparé possède la forme ``[2, 5, 19, 256]`` :
+Un fichier préparé possède la forme ``[2, 5, canaux, 256]`` :
 
 * 2 participants ;
 * 5 fenêtres de deux secondes ;
-* 19 électrodes ;
+* le nombre de canaux du dataset préparé (19 pour le montage réduit, 32 pour
+  le montage ASC complet — cf. ``expected_number_of_channels`` ci-dessous) ;
 * 256 points temporels à 128 Hz.
 
 Chaque fenêtre devient un exemple d'entraînement. Le découpage train /
@@ -21,8 +22,11 @@ from torch.utils.data import DataLoader, Dataset
 
 EXPECTED_PARTICIPANTS = 2
 EXPECTED_WINDOWS_PER_PARTICIPANT = 5
-EXPECTED_CHANNELS = 19
 EXPECTED_TIMEPOINTS = 256
+
+# Valeur par défaut historique : le montage réduit à 19 électrodes. Passer
+# expected_number_of_channels=32 pour le montage ASC complet.
+DEFAULT_EXPECTED_CHANNELS = 19
 
 
 class SignalJEPAWindowDataset(Dataset):
@@ -33,10 +37,12 @@ class SignalJEPAWindowDataset(Dataset):
         classification_table,
         dataset_root: str | Path,
         cache_files: bool = True,
+        expected_number_of_channels: int = DEFAULT_EXPECTED_CHANNELS,
     ) -> None:
         self.classification_table = classification_table.reset_index(drop=True)
         self.dataset_root = Path(dataset_root)
         self.cache_files = cache_files
+        self.expected_number_of_channels = expected_number_of_channels
 
         # Sans cache, le même fichier serait relu dix fois par epoch
         # (2 participants × 5 fenêtres). Le dataset préparé reste assez petit
@@ -88,7 +94,7 @@ class SignalJEPAWindowDataset(Dataset):
         expected_shape = (
             EXPECTED_PARTICIPANTS,
             EXPECTED_WINDOWS_PER_PARTICIPANT,
-            EXPECTED_CHANNELS,
+            self.expected_number_of_channels,
             EXPECTED_TIMEPOINTS,
         )
         if file_eeg.shape != expected_shape:
@@ -173,6 +179,7 @@ def create_signal_jepa_window_dataloaders(
     validation_dyads: list[str],
     batch_size: int,
     random_seed: int,
+    expected_number_of_channels: int = DEFAULT_EXPECTED_CHANNELS,
 ):
     """Crée les DataLoaders train et validation de façon reproductible."""
 
@@ -185,10 +192,12 @@ def create_signal_jepa_window_dataloaders(
     train_dataset = SignalJEPAWindowDataset(
         classification_table=train_table,
         dataset_root=dataset_root,
+        expected_number_of_channels=expected_number_of_channels,
     )
     validation_dataset = SignalJEPAWindowDataset(
         classification_table=validation_table,
         dataset_root=dataset_root,
+        expected_number_of_channels=expected_number_of_channels,
     )
 
     # Ce générateur rend l'ordre de mélange reproductible pour une seed fixe.

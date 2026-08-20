@@ -68,8 +68,11 @@ class SignalJEPAPreLocalConfig:
                 "scratch doit utiliser full_finetuning."
             )
 
-        if self.number_of_channels != 19:
-            raise ValueError("Cette expérience PreLocal attend 19 canaux.")
+        if self.number_of_channels not in (19, 32):
+            raise ValueError(
+                "Cette expérience PreLocal attend 19 canaux (montage réduit) "
+                f"ou 32 canaux (montage ASC complet), reçu {self.number_of_channels}."
+            )
         if self.number_of_timepoints != 256:
             raise ValueError("Cette expérience PreLocal attend 256 points.")
         if self.sampling_frequency != 128.0:
@@ -114,7 +117,7 @@ class SignalJEPAPreLocalConfig:
             f"{self.dataset_version}"
             f"_signal_jepa_prelocal_{self.model_variant}"
             f"_{self.freeze_strategy}"
-            "_19ch_128hz_2s_microvolts_no_zscore"
+            f"_{self.number_of_channels}ch_128hz_2s_microvolts_no_zscore"
             f"_lr_{self.learning_rate:g}"
             f"_batch_{self.batch_size}"
             f"_epochs_{self.number_of_epochs}"
