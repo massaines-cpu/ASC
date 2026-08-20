@@ -12,7 +12,14 @@
   "random_seed": 42,
   "device_name": "mps",
   "selected_folds": [
-    "J1"
+    "J1",
+    "J2",
+    "J4",
+    "J5",
+    "J7",
+    "J8",
+    "J10",
+    "J15"
   ],
   "pretrained_checkpoint": "braindecode/signal-jepa_without-chans",
   "number_of_channels": 19,

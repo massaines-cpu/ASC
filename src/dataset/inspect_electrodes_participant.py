@@ -40,6 +40,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 # L'ordre doit rester strictement identique à l'axe des canaux dans les
 # fichiers .npy. Une erreur d'ordre attribuerait les statistiques et les
 # corrections à une mauvaise électrode.
+#ordre réel des 32 électrodes
 ELECTRODE_NAMES = [
     "Fp1", "AF3", "F7", "F3", "FC1", "FC5", "T7", "C3",
     "CP1", "CP5", "P7", "P3", "Pz", "PO3", "O1", "Oz",
@@ -50,6 +51,7 @@ ELECTRODE_NAMES = [
 # Chaque électrode est affectée à une région large afin que
 # l'interpolation régionale n'utilise pas un canal provenant d'une zone
 # anatomique différente.
+#attribution de chaque électrode à une région
 ELECTRODE_REGIONS = {
     # Frontal
     "Fp1": "frontal", "AF3": "frontal", "F7": "frontal",
@@ -74,6 +76,7 @@ ELECTRODE_REGIONS = {
 # standard utilisée pour le topoplot). Unités arbitraires, cohérentes
 # entre elles — seules les distances relatives comptent pour
 # l'interpolation spatiale.
+#coordonnées spatiales des électrodes
 ELECTRODE_POSITIONS: dict[str, tuple[float, float]] = {
     "Fp1": (-0.22, 0.92), "AF3": (-0.30, 0.78),
     "F7": (-0.78, 0.55), "F3": (-0.40, 0.55),
@@ -165,7 +168,7 @@ def build_participant_table(
 # ------------------------------------------------------------------
 # 2. Analyse par électrode
 # ------------------------------------------------------------------
-
+#détection des valeurs dépassant le seuil
 def analyse_by_electrode(
     npy_path: Path,
     threshold: float,
@@ -551,10 +554,10 @@ def get_regional_neighbors(
 
     if not candidates:
         return []
-
+#sélection des quatre voisins de la même région avec cdist
     candidate_positions = np.array([electrode_positions[e] for e in candidates])
     distances = cdist(bad_pos, candidate_positions, metric="euclidean").flatten()
-
+#reconstruction pondérée du canal
     sorted_indices = np.argsort(distances)
     return [candidates[i] for i in sorted_indices[:n_neighbors]]
 
@@ -607,9 +610,9 @@ def interpolate_channel_regional(
     # La correction cible uniquement le participant réellement contaminé.
     # Par exemple, participant_index=0 modifie P1 et conserve P2 intact.
     corrected[participant_index, bad_ch_idx, :] = interpolated
-
     return corrected
 
+#application de la correction au participant et au canal ciblés
 
 def apply_regional_interpolation(
     data: np.ndarray,

@@ -68,8 +68,8 @@ FREEZE_STRATEGY = "classifier_only"
 
 # J1 permet d'abord de vérifier rapidement si le modèle quitte le hasard.
 # Pour la LODO complète :
-# SELECTED_FOLDS = ("J1", "J2", "J4", "J5", "J7", "J8", "J10", "J15")
-SELECTED_FOLDS = ("J1",)
+SELECTED_FOLDS = ("J1", "J2", "J4", "J5", "J7", "J8", "J10", "J15")
+# SELECTED_FOLDS = ("J1",)
 
 # Le tutoriel officiel emploie AdamW, lr=0.005 et batch_size=16.
 # Ces valeurs sont conservées pour la première reproduction de référence.

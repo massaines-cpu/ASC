@@ -1,0 +1,6 @@
+layer_name,layer_type,input_shape,output_shape,parameters,trainable_parameters
+flatten,Flatten,"(1, 32, 5120)","(1, 163840)",0,0
+hidden_layer,Linear,"(1, 163840)","(1, 32)",5242912,5242912
+activation,ReLU,"(1, 32)","(1, 32)",0,0
+dropout,Dropout,"(1, 32)","(1, 32)",0,0
+classifier,Linear,"(1, 32)","(1, 1)",33,33

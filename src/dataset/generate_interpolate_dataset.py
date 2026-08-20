@@ -26,6 +26,7 @@ from inspect_electrodes_participant import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+#data_toy comme source et data_final comme sortie
 SOURCE_DATASET_ROOT = PROJECT_ROOT / "data" / "data_toy"
 
 # Ce nom décrit une nouvelle expérience. Il évite de présenter la
@@ -41,7 +42,7 @@ RESULTS_DIR = (
     / "experiment_E_regional_participant"
 )
 
-
+#recherche des couples participant–électrode contaminés
 def find_bad_targets(
     source_path: Path,
     threshold: float,
@@ -92,7 +93,7 @@ def verify_untargeted_channels_are_unchanged(
                     f"{ELECTRODE_NAMES[channel_index]}."
                 )
 
-
+# copie et correction de chaque fichier
 def generate_corrected_dataset(
     source_root: Path,
     output_root: Path,
@@ -130,7 +131,7 @@ def generate_corrected_dataset(
             source_path=source_path,
             threshold=threshold,
         )
-
+#appel de l’interpolation régionale
         if bad_targets:
             corrected, interpolation_log = apply_regional_interpolation(
                 data=original.astype(np.float64, copy=False),
@@ -148,9 +149,9 @@ def generate_corrected_dataset(
         else:
             corrected = original.copy()
             interpolation_log = {}
-
+#sauvegarde avec np.save()
         np.save(output_path, corrected)
-
+#création du journal de correction
         # Une ligne est enregistrée pour chaque canal effectivement ciblé.
         for row in contaminated_rows:
             participant_index = int(row["participant_index"])
@@ -191,7 +192,7 @@ def generate_corrected_dataset(
 
     return pd.DataFrame(correction_rows)
 
-
+#lancement global et sauvegarde du CSV.
 def main() -> None:
     """Génère le dataset, le journal CSV et un résumé terminal."""
 

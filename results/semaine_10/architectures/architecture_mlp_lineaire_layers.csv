@@ -1,0 +1,3 @@
+layer_name,layer_type,input_shape,output_shape,parameters,trainable_parameters
+flatten,Flatten,"(1, 32, 5120)","(1, 163840)",0,0
+classifier,Linear,"(1, 163840)","(1, 1)",163841,163841

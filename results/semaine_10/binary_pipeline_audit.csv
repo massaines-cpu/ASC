@@ -1,0 +1,5 @@
+model,forward_output,output_shape,sigmoid_calls_inside_forward,training_loss,evaluation_probability,loss_is_finite,probabilities_in_0_1,gradient_present,audit_passed
+MLP linéaire,one_raw_logit_per_eeg,"(2,)",0,BCEWithLogitsLoss,torch.sigmoid(logits),True,True,True,True
+MLP non linéaire,one_raw_logit_per_eeg,"(2,)",0,BCEWithLogitsLoss,torch.sigmoid(logits),True,True,True,True
+Petit CNN,one_raw_logit_per_eeg,"(2,)",0,BCEWithLogitsLoss,torch.sigmoid(logits),True,True,True,True
+EEGNet,one_raw_logit_per_eeg,"(2,)",0,BCEWithLogitsLoss,torch.sigmoid(logits),True,True,True,True

@@ -1,0 +1,16 @@
+layer_name,layer_type,input_shape,output_shape,parameters,trainable_parameters
+features.0,Conv1d,"(1, 32, 5120)","(1, 16, 2560)",12816,12816
+features.1,BatchNorm1d,"(1, 16, 2560)","(1, 16, 2560)",32,32
+features.2,ELU,"(1, 16, 2560)","(1, 16, 2560)",0,0
+features.3,MaxPool1d,"(1, 16, 2560)","(1, 16, 640)",0,0
+features.4,Conv1d,"(1, 16, 640)","(1, 32, 640)",7712,7712
+features.5,BatchNorm1d,"(1, 32, 640)","(1, 32, 640)",64,64
+features.6,ELU,"(1, 32, 640)","(1, 32, 640)",0,0
+features.7,MaxPool1d,"(1, 32, 640)","(1, 32, 160)",0,0
+features.8,Conv1d,"(1, 32, 160)","(1, 64, 160)",14400,14400
+features.9,BatchNorm1d,"(1, 64, 160)","(1, 64, 160)",128,128
+features.10,ELU,"(1, 64, 160)","(1, 64, 160)",0,0
+features.11,AdaptiveAvgPool1d,"(1, 64, 160)","(1, 64, 1)",0,0
+classifier.0,Flatten,"(1, 64, 1)","(1, 64)",0,0
+classifier.1,Dropout,"(1, 64)","(1, 64)",0,0
+classifier.2,Linear,"(1, 64)","(1, 1)",65,65
