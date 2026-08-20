@@ -27,8 +27,9 @@ GROUP_TITLES = {
     "mlp_hidden_size": "MLP non linéaire — taille de la couche cachée",
     "mlp_dropout": "MLP 32 neurones — effet du Dropout",
     "architectures": "Architectures from scratch — comparaison LODO",
-    "signal_jepa": "SignalJEPA PreLocal — stratégies de transfert",
+    "signal_jepa": "SignalJEPA PreLocal 19ch — stratégies de transfert",
     "signal_jepa_channels": "SignalJEPA PreLocal — 19 vs 32 canaux (scratch)",
+    "signal_jepa_32ch": "SignalJEPA PreLocal 32ch — stratégies de transfert",
 }
 
 

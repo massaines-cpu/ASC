@@ -30,15 +30,25 @@ from src.models.participant_non_linear_MLP_dropout import (  # noqa: E402
     NonLinearParticipantMLP,
 )
 from src.models.petit_eeg_cnn import Small_CNN_EEG  # noqa: E402
+from src.models.signal_jepa_prelocal_model import (  # noqa: E402
+    create_signal_jepa_prelocal,
+)
 
 
 @dataclass(frozen=True)
 class ArchitectureSpec:
-    """Décrit une architecture et le nom de sa figure."""
+    """Décrit une architecture et le nom de sa figure.
+
+    ``input_shape`` est explicite plutôt que supposé identique pour tous les
+    modèles : SignalJEPA PreLocal attend ``[1, canaux, 256]`` (fenêtres de
+    2 s à 128 Hz), pas ``[1, 32, 5120]`` comme les architectures ASC "from
+    scratch".
+    """
 
     name: str
     file_stem: str
     model: nn.Module
+    input_shape: tuple[int, int, int] = (1, 32, 5120)
 
 
 def is_leaf_module(module: nn.Module) -> bool:
@@ -143,7 +153,7 @@ def save_architecture_figure(
     )
     axis.set_title(
         (
-            f"{specification.name} — architecture mesurée\n"
+            f"{specification.name} architecture mesurée\n"
             f"{total_parameters:,} paramètres au total"
         ),
         fontsize=16,
@@ -155,7 +165,7 @@ def save_architecture_figure(
         "layer_name": "Input EEG",
         "layer_type": "Input",
         "input_shape": "—",
-        "output_shape": "(1, 32, 5120)",
+        "output_shape": str(tuple(specification.input_shape)),
         "parameters": 0,
     }, *rows]
 
@@ -210,7 +220,7 @@ def save_architecture_figure(
         6,
         0.35,
         (
-            f"Sortie finale : {output_shape} — un logit brut YF par EEG. "
+            f"Sortie finale : {output_shape} un logit brut YF par EEG. "
             "La probabilité est calculée ensuite avec Sigmoid."
         ),
         ha="center",
@@ -228,10 +238,9 @@ def save_architecture_figure(
 
 
 def main() -> None:
-    """Génère les quatre architectures comparées dans ASC."""
+    """Génère les architectures comparées dans ASC."""
 
     torch.manual_seed(42)
-    fake_eeg = torch.randn(1, 32, 5120)
 
     specifications = (
         ArchitectureSpec(
@@ -240,7 +249,7 @@ def main() -> None:
             SimpleParticipantClassifier(),
         ),
         ArchitectureSpec(
-            "MLP non linéaire — 32 neurones",
+            "MLP non linéaire 32 neurones",
             "architecture_mlp_non_lineaire",
             NonLinearParticipantMLP(
                 hidden_layer_size=32,
@@ -257,9 +266,33 @@ def main() -> None:
             "architecture_eegnet",
             EEGNet(n_channels=32, n_samples=5120),
         ),
+        # scratch/full_finetuning : la structure des couches (ce que ce
+        # diagramme montre) est identique pour les 3 stratégies de transfert,
+        # seules les valeurs des poids diffèrent. scratch évite de
+        # télécharger un checkpoint juste pour dessiner le schéma.
+        ArchitectureSpec(
+            "SignalJEPA PreLocal 19 canaux",
+            "architecture_signal_jepa_prelocal_19ch",
+            create_signal_jepa_prelocal(
+                model_variant="scratch",
+                freeze_strategy="full_finetuning",
+            ),
+            input_shape=(1, 19, 256),
+        ),
+        ArchitectureSpec(
+            "SignalJEPA PreLocal 32 canaux",
+            "architecture_signal_jepa_prelocal_32ch",
+            create_signal_jepa_prelocal(
+                model_variant="scratch",
+                freeze_strategy="full_finetuning",
+                number_of_channels=32,
+            ),
+            input_shape=(1, 32, 256),
+        ),
     )
 
     for specification in specifications:
+        fake_eeg = torch.randn(*specification.input_shape)
         rows, output_shape = collect_architecture_rows(
             model=specification.model,
             fake_eeg=fake_eeg,

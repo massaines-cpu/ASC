@@ -131,7 +131,7 @@ FIGURE_DOCUMENTATION = (
     {
         "figure": "<experience>_accuracy_8folds.png",
         "input": "Historique train_accuracy et validation_accuracy par epoch",
-        "operation": "Aucune moyenne entre folds ; une sous-figure par dyade",
+        "operation": "Aucune moyenne entre folds, une sous-figure par dyade",
         "dimensions_reduced": "moyenne des décisions correctes sur les exemples",
         "output": "Courbes train/validation et époque du meilleur checkpoint",
         "x_axis": "Epoch",

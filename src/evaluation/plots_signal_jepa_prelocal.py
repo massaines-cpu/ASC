@@ -32,12 +32,12 @@ def save_fold_history_and_plots(
         epochs,
         history_table["train_window_loss"],
         "--",
-        label="Train — fenêtres",
+        label="Train fenêtres",
     )
     axes[0].plot(
         epochs,
         history_table["validation_window_loss"],
-        label="Validation — fenêtres",
+        label="Validation fenêtres",
     )
     axes[0].plot(
         epochs,
@@ -54,12 +54,12 @@ def save_fold_history_and_plots(
         epochs,
         history_table["train_window_accuracy"],
         "--",
-        label="Train — fenêtres",
+        label="Train fenêtres",
     )
     axes[1].plot(
         epochs,
         history_table["validation_window_accuracy"],
-        label="Validation — fenêtres",
+        label="Validation fenêtres",
     )
     axes[1].set_title("Accuracy par fenêtre")
     axes[1].set_xlabel("Epoch")

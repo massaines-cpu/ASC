@@ -1,0 +1,24 @@
+Dyade de validation : J10
+Accuracy participant : 0.9432
+Loss participant : 0.1894
+Accuracy fenêtre : 0.9045
+Loss fenêtre : 0.2347
+Participants évalués : 88
+Fenêtres évaluées : 440
+Confiance moyenne : 0.8944
+Prédictions YO : 49
+Prédictions YF : 39
+
+Matrice de confusion :
+[[44  0]
+ [ 5 39]]
+
+Classification report :
+              precision    recall  f1-score   support
+
+          YO     0.8980    1.0000    0.9462        44
+          YF     1.0000    0.8864    0.9398        44
+
+    accuracy                         0.9432        88
+   macro avg     0.9490    0.9432    0.9430        88
+weighted avg     0.9490    0.9432    0.9430        88

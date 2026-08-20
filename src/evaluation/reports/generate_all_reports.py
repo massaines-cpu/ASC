@@ -14,22 +14,22 @@ from src.evaluation.visualizations import (
 def main() -> None:
     """Exécute chaque étape dans un ordre qui facilite le diagnostic."""
 
-    print("\n1/6 — Vérification de la sortie binaire")
+    print("\n1/6 vérification de la sortie binaire")
     audit_binary_pipeline.main()
 
-    print("\n2/6 — Vérification des meilleurs checkpoints")
+    print("\n2/6 vérification des meilleurs checkpoints")
     audit_best_checkpoints.main()
 
-    print("\n3/6 — Boxplots LODO")
+    print("\n3/6 boxplots LODO")
     generate_boxplots.main()
 
-    print("\n4/6 — Grilles des huit folds")
+    print("\n4/6 grilles des huit folds")
     generate_fold_grids.main()
 
-    print("\n5/6 — Diagrammes d'architecture")
+    print("\n5/6 diagrammes d'architecture")
     generate_architecture_diagrams.main()
 
-    print("\n6/6 — Documentation des figures")
+    print("\n6/6 documentation des figures")
     figure_documentation.main()
 
     print("\nTous les rapports ont été générés.")

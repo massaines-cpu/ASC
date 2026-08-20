@@ -1,0 +1,24 @@
+layer_name,layer_type,input_shape,output_shape,parameters,trainable_parameters
+spatial_conv.0,Rearrange,"(1, 32, 256)","(1, 1, 32, 256)",0,0
+spatial_conv.1,Conv2d,"(1, 1, 32, 256)","(1, 4, 1, 256)",132,132
+spatial_conv.2,Rearrange,"(1, 4, 1, 256)","(1, 4, 256)",0,0
+feature_encoder.0,Rearrange,"(1, 4, 256)","(4, 1, 256)",0,0
+feature_encoder.1.0,Conv1d,"(4, 1, 256)","(4, 8, 29)",256,256
+feature_encoder.1.1,Dropout,"(4, 8, 29)","(4, 8, 29)",0,0
+feature_encoder.1.2,GroupNorm,"(4, 8, 29)","(4, 8, 29)",16,16
+feature_encoder.1.3,GELU,"(4, 8, 29)","(4, 8, 29)",0,0
+feature_encoder.2.0,Conv1d,"(4, 8, 29)","(4, 16, 14)",256,256
+feature_encoder.2.1,Dropout,"(4, 16, 14)","(4, 16, 14)",0,0
+feature_encoder.2.2,GELU,"(4, 16, 14)","(4, 16, 14)",0,0
+feature_encoder.3.0,Conv1d,"(4, 16, 14)","(4, 32, 7)",1024,1024
+feature_encoder.3.1,Dropout,"(4, 32, 7)","(4, 32, 7)",0,0
+feature_encoder.3.2,GELU,"(4, 32, 7)","(4, 32, 7)",0,0
+feature_encoder.4.0,Conv1d,"(4, 32, 7)","(4, 64, 3)",4096,4096
+feature_encoder.4.1,Dropout,"(4, 64, 3)","(4, 64, 3)",0,0
+feature_encoder.4.2,GELU,"(4, 64, 3)","(4, 64, 3)",0,0
+feature_encoder.5.0,Conv1d,"(4, 64, 3)","(4, 64, 1)",8192,8192
+feature_encoder.5.1,Dropout,"(4, 64, 1)","(4, 64, 1)",0,0
+feature_encoder.5.2,GELU,"(4, 64, 1)","(4, 64, 1)",0,0
+feature_encoder.6,Rearrange,"(4, 64, 1)","(1, 4, 64)",0,0
+final_layer.0,Flatten,"(1, 4, 64)","(1, 256)",0,0
+final_layer.1,Linear,"(1, 256)","(1, 1)",257,257

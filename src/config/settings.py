@@ -203,12 +203,52 @@ SIGNAL_JEPA_CHANNELS_EXPERIMENTS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Les trois stratégies de transfert, montage ASC complet (32 canaux) —
+# équivalent de SIGNAL_JEPA_EXPERIMENTS (19ch) pour comparer scratch,
+# pré-entraîné gelé et pré-entraîné entièrement affiné.
+# ---------------------------------------------------------------------------
+SIGNAL_JEPA_32CH_EXPERIMENTS = (
+    ExperimentSpec(
+        label="Pré-entraîné — classifieur",
+        result_directory_name=(
+            "data_signal_jepa_prelocal_32ch_128hz_2s_uv_"
+            "signal_jepa_prelocal_pretrained_classifier_only_"
+            "32ch_128hz_2s_microvolts_no_zscore_lr_0.005_"
+            "batch_16_epochs_10_patience_5_seed_42"
+        ),
+        family="signal_jepa_32ch",
+    ),
+    ExperimentSpec(
+        label="From scratch — complet",
+        result_directory_name=(
+            "data_signal_jepa_prelocal_32ch_128hz_2s_uv_"
+            "signal_jepa_prelocal_scratch_full_finetuning_"
+            "32ch_128hz_2s_microvolts_no_zscore_lr_0.005_"
+            "batch_16_epochs_10_patience_5_seed_42"
+        ),
+        family="signal_jepa_32ch",
+    ),
+    ExperimentSpec(
+        label="Pré-entraîné — complet",
+        result_directory_name=(
+            "data_signal_jepa_prelocal_32ch_128hz_2s_uv_"
+            "signal_jepa_prelocal_pretrained_full_finetuning_"
+            "32ch_128hz_2s_microvolts_no_zscore_lr_0.005_"
+            "batch_16_epochs_10_patience_5_seed_42"
+        ),
+        family="signal_jepa_32ch",
+    ),
+)
+
+
 COMPARISON_GROUPS = {
     "mlp_hidden_size": MLP_HIDDEN_SIZE_EXPERIMENTS,
     "mlp_dropout": MLP_DROPOUT_EXPERIMENTS,
     "architectures": ARCHITECTURE_EXPERIMENTS,
     "signal_jepa": SIGNAL_JEPA_EXPERIMENTS,
     "signal_jepa_channels": SIGNAL_JEPA_CHANNELS_EXPERIMENTS,
+    "signal_jepa_32ch": SIGNAL_JEPA_32CH_EXPERIMENTS,
 }
 
 

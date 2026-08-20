@@ -67,11 +67,11 @@ DATASET_VERSION = "data_signal_jepa_prelocal_32ch_128hz_2s_uv"
 NUMBER_OF_CHANNELS = 32
 
 # Valeurs possibles : "scratch" ou "pretrained".
-MODEL_VARIANT = "scratch"
+MODEL_VARIANT = "pretrained"
 
 # Valeurs possibles : "classifier_only" ou "full_finetuning".
 # classifier_only n'est autorisé qu'avec MODEL_VARIANT = "pretrained".
-FREEZE_STRATEGY = "full_finetuning"
+FREEZE_STRATEGY = "classifier_only"
 
 # J1 permet d'abord de vérifier rapidement si le modèle quitte le hasard.
 # Pour la LODO complète :
