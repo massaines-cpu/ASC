@@ -14,9 +14,11 @@ import numpy as np
 import pandas as pd
 
 from src.evaluation.result_io import load_summary
+from src.evaluation.visualizations.generate_fold_grids import read_patience
 from src.config.settings import (
     CHECKPOINT_SELECTION,
     COMPARISON_GROUPS,
+    EARLY_STOPPING_MONITOR,
     EXPECTED_DYADS,
     REPORT_OUTPUT_ROOT,
     ExperimentSpec,
@@ -130,19 +132,47 @@ def save_group_boxplot(
     axis.grid(axis="y", alpha=0.25)
     axis.tick_params(axis="x", rotation=12)
 
+    # Patience potentiellement différente d'une configuration à l'autre au
+    # sein d'un même groupe : affichée en une seule valeur si elle est
+    # partagée, sinon détaillée par configuration plutôt que de choisir une
+    # valeur arbitrairement.
+    patience_by_experiment = {
+        experiment.label: read_patience(experiment)
+        for experiment in experiments
+    }
+    unique_patiences = set(patience_by_experiment.values())
+    if len(unique_patiences) == 1:
+        patience_text = f"patience={unique_patiences.pop()}"
+    else:
+        patience_text = "patience=" + ", ".join(
+            f"{label}:{value}"
+            for label, value in patience_by_experiment.items()
+        )
+
     figure.text(
         0.5,
-        0.015,
+        0.045,
         (
             "Chaque point = une dyade de validation LODO (n = 8). "
-            f"Checkpoint retenu : {CHECKPOINT_SELECTION}. "
             "Losange blanc = moyenne."
         ),
         ha="center",
         fontsize=9,
         color="#374151",
     )
-    figure.tight_layout(rect=[0, 0.055, 1, 1])
+    figure.text(
+        0.5,
+        0.015,
+        (
+            f"Early stopping : {patience_text}, "
+            f"métrique={EARLY_STOPPING_MONITOR}, "
+            f"checkpoint retenu={CHECKPOINT_SELECTION}."
+        ),
+        ha="center",
+        fontsize=9,
+        color="#374151",
+    )
+    figure.tight_layout(rect=[0, 0.08, 1, 1])
 
     output_directory.mkdir(parents=True, exist_ok=True)
     output_path = output_directory / f"boxplot_{group_name}.png"

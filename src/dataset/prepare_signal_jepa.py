@@ -47,12 +47,13 @@ TARGET_DATASET_NAME = "data_signal_jepa_128hz_uv"
 # False : les données source sont déjà filtrées de manière compatible.
 # True  : le script ajoute un filtre 0,5-40 Hz avant le rééchantillonnage.
 #
-# Réglé à True suite à diagnose_bandpass_filtering.py : pas de pic secteur à
-# 50 Hz, mais une coupure nette visible sur la PSD vers 45-65 Hz dont la
-# fréquence exacte n'est pas confirmée, et 12,7 % de puissance sous 0,5 Hz.
-# Filtrer un signal déjà filtré dans la même bande ne change rien
-# d'important ; ne pas filtrer un signal qui ne l'est pas fausse le
-# transfert depuis le checkpoint SignalJEPA (pré-entraîné sur 0,5-40 Hz).
+# Confirmé auprès du collègue en charge du traitement du signal (2026-08-21) :
+# l'acquisition applique déjà un passe-bande [0,5 ; 48] Hz — exactement
+# cohérent avec la coupure nette observée sur la PSD (diagnose_bandpass_
+# filtering.py) juste après 48 Hz. Le checkpoint SignalJEPA attend 0,5-40 Hz :
+# il reste donc une tranche 40-48 Hz que l'acquisition ne filtre pas. Ce
+# second filtre plus étroit la retire, sans risque puisqu'il s'applique à un
+# signal déjà filtré dans une bande plus large.
 APPLY_BANDPASS = True
 
 # Les 338 fichiers existants viennent de la tentative précédente, produite

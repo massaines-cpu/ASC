@@ -17,7 +17,7 @@ mlartifacts/
 /models/
 mlflow.db
 mlruns/
-
+src/**/*.md
 .ipynb_checkpoints/
 
 .vscode/

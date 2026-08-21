@@ -25,12 +25,11 @@ apprend sur ces données (accuracy dès la première epoch en scratch).
 
 Avant le premier lancement
 --------------------------
-Lancer d'abord ``python -m src.dataset.diagnose_bandpass_filtering`` si ce
-n'est pas déjà fait. ``APPLY_BANDPASS`` reprend ici la même conclusion que
-``prepare_signal_jepa.py`` (32 canaux, non fenêtré) : pas de pic secteur à
-50 Hz, mais une coupure nette vers 45-65 Hz de fréquence non confirmée et
-12,7 % de puissance sous 0,5 Hz — filtrer par prudence plutôt que ne pas
-filtrer un signal qui ne l'est pas.
+Confirmé auprès du collègue en charge du traitement du signal (2026-08-21) :
+l'acquisition applique déjà un passe-bande [0,5 ; 48] Hz. Le checkpoint
+SignalJEPA attend 0,5-40 Hz : ``APPLY_BANDPASS`` reste à True pour retirer la
+tranche 40-48 Hz restante — voir la docstring de ``prepare_signal_jepa.py``
+pour le détail.
 """
 
 import csv

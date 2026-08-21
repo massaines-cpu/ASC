@@ -19,9 +19,15 @@ transformations appliquées.
 
 Avant le premier lancement
 --------------------------
-Vérifier avec la documentation d'acquisition si les données ont déjà été
-filtrées entre 0,5 et 40 Hz. Ensuite, régler ``APPLY_BANDPASS`` ci-dessous.
-Il ne faut pas activer un second filtrage sans justification scientifique.
+Confirmé auprès du collègue en charge du traitement du signal (2026-08-21) :
+un filtre passe-bande **[0,5 ; 48] Hz** est appliqué à l'acquisition. Le
+checkpoint SignalJEPA attend 0,5-40 Hz — l'écart se limite à une tranche
+40-48 Hz non filtrée par l'acquisition. ``APPLY_BANDPASS = False`` ci-dessous
+n'a donc PAS été mis à jour depuis cette confirmation : les résultats 19ch
+déjà validés (~86-92 % d'accuracy LODO) ont été produits sans ce correctif
+et n'ont donc pas exactement la distribution du pré-entraînement. Passer à
+True et régénérer ce dataset donnerait une correspondance plus stricte —
+à décider selon si ce léger écart mérite de relancer l'expérience.
 """
 
 import csv
@@ -45,7 +51,10 @@ TARGET_DATASET_NAME = "data_signal_jepa_prelocal_19ch_128hz_2s_uv"
 # False : les données source sont déjà filtrées de manière compatible.
 # True  : le script ajoute un filtre 0,5-40 Hz avant le rééchantillonnage.
 #
-# Conserver False tant que le prétraitement d'acquisition n'est pas confirmé.
+# Acquisition confirmée à [0,5 ; 48] Hz (voir docstring du module) : reste à
+# False pour préserver les résultats déjà validés sur ce dataset tels quels.
+# Passer à True avant une régénération si on veut corriger la tranche
+# 40-48 Hz restante.
 APPLY_BANDPASS = False
 
 # La protection évite d'écraser silencieusement un dataset déjà produit.
